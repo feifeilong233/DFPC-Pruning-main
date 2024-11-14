@@ -131,4 +131,5 @@ dmypy.json
 .idea
 *.pth.tar
 *.pth
+*.pt
 **/cifar-*

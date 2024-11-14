@@ -4,12 +4,11 @@ from tqdm import tqdm
 from enum import Enum
 from collections import OrderedDict
 
-import torch
-import torch.nn as nn
-import torchvision.models as models
+import copy
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from ptflops import get_model_complexity_info
+from models import *
 
 
 def main():
@@ -18,7 +17,21 @@ def main():
     batch_size = 32
     workers = 4
     print_freq = 500
-    checkpoint_path = 'best_base_model.pth.tar'
+    checkpoint_path = 'best_dataparallel_model.pth.tar'
+
+    print("=> using pre-trained model of 'resnet50'")
+    base_model = ResNet50()
+    state_dict = torch.load('./pretrained_checkpoints/cifar10_resnet50_ckpt.pth')['net']
+    base_model.load_state_dict(DataParallelStateDict_To_StateDict(state_dict))
+    del state_dict
+
+    net = model = copy.deepcopy(base_model)
+    macs, params = get_model_complexity_info(net, (3, 32, 32), as_strings=True, print_per_layer_stat=False)
+    del net
+
+    print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
+    print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
+
 
     # 加载模型检查点
     dict = torch.load(checkpoint_path, map_location=torch.device('cpu'))
