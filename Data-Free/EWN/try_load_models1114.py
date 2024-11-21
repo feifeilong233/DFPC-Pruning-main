@@ -1,5 +1,5 @@
 from ptflops import get_model_complexity_info
-from models import *
+import torch
 from try_resnet_0706 import ResNet
 from try_resnet_0706 import BasicBlock
 
