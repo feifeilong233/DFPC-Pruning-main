@@ -39,10 +39,10 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='DFPC PyTorch Implementation')
 parser.add_argument('--data', metavar='DIR',
-                    help='path to dataset')
+                    help='path to dataset', default='./data')
 parser.add_argument('--dataset',
-                    help='dataset name', choices=['imagenet', 'cifar10', 'cifar100'])
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
+                    help='dataset name', choices=['imagenet', 'cifar10', 'cifar100'], default='cifar10')
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
                         ' | '.join(model_names) +

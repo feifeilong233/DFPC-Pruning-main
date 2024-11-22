@@ -133,3 +133,4 @@ dmypy.json
 *.pth
 *.pt
 **/cifar-*
+Data-Free/EWN/Data_UCTwithDemo*

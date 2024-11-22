@@ -99,7 +99,7 @@ class GenThinPruner():
         self.geometric_constraints = self.ResnetGeometricConstraints(self.model)
         self.num_processors = args.num_processors
         # fetch size of input and output tensors to each layer.
-        self.model_info = summary(self.model, (3,32, 32))
+        self.model_info = summary(self.model, (10, 5, 5))
         self.args = args
         del self.model
 

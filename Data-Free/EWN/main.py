@@ -1,288 +1,84 @@
-'''
-    This code is based on the official PyTorch ImageNet training example 'main.py'. Commit ID: fa9584456cced1d3a6cf19869ca6fb912ecee778, March 17th, 2022.
-    URL: https://github.com/pytorch/examples/tree/main/imagenet
-'''
-
 import argparse
-from hashlib import new
-import os
-import random
+import copy
 import shutil
 import time
 import warnings
-import copy
-from enum import Enum
 from collections import OrderedDict
-from pruner.genthin import GenThinPruner
-from tqdm import tqdm
-from torchvision.datasets import CIFAR10
-from ptflops import get_model_complexity_info
+from enum import Enum
 
+import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.parallel
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
 import torch.optim
-from torch.optim.lr_scheduler import StepLR, MultiStepLR
-import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-import torchvision.models as models
-import torchvision
+from ptflops import get_model_complexity_info
+from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
-model_names = sorted(name for name in models.__dict__
-    if name.islower() and not name.startswith("__")
-    and callable(models.__dict__[name]))
+from data_combine1021Alpha_great_combineAll import data_combine
+from loss_function_0712Alpha import loss_soft_add
+from pruner.genthin import GenThinPruner
+from subDataset import subDataset
+# from try_resnet_1003 import ResNet, BasicBlock
+from try_resnet_0706 import ResNet, BasicBlock
 
-parser = argparse.ArgumentParser(description='DFPC PyTorch Implementation')
-parser.add_argument('--data', metavar='DIR',
-                    help='path to dataset')
-parser.add_argument('--dataset',
-                    help='dataset name', choices=['imagenet', 'cifar10', 'cifar100'])
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
-                    choices=model_names,
-                    help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet18)')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-                    help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                    help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
-                    metavar='N',
-                    help='mini-batch size (default: 256), this is the total '
-                         'batch size of all GPUs on the current node when '
-                         'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
-                    metavar='LR', help='initial learning rate', dest='lr')
-parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
-                    help='momentum')
-parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
-                    metavar='W', help='weight decay (default: 1e-4)',
-                    dest='weight_decay')
-parser.add_argument('-p', '--print-freq', default=100, type=int,
-                    metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
+parser = argparse.ArgumentParser(description='Model Pruning Implementation')
+parser.add_argument('--resume', default='0830_1111_Alpha1.pt', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
-                    help='evaluate model on validation set')
-parser.add_argument('--seed', default=None, type=int,
-                    help='seed for initializing training. ')
-parser.add_argument('--gpu', default=None, type=int,
-                    help='GPU id to use.')
-parser.add_argument('--gamma', default=0.1, type=float,
-                    help='learning rate decay factor', dest='gamma')
-parser.add_argument('--decay-step-size', default=5, type=int,
-                    help='number of epochs after which learning rate is reduced', dest='decay_step_size')
+parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('--accuracy-threshold', default=2.5, type=float,
                     help='validation accuracy drop feasible for the pruned model', dest='accuracy_threshold')
-parser.add_argument('--accuracy-drop-to-stop', default=1, type=float,
-                    help='stopping criterion. validation accuracy drop, beyond feasible accuracy, when we stop pruning', \
-                    dest='accuracy_drop_to_stop')
 parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
-parser.add_argument('--num-processes', default=5, type=int, # More the merrier, but RAM consumption will increase drastically.
+parser.add_argument('--num-processes', default=5, type=int,
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
-parser.add_argument('--scoring-strategy', default='dfpc', type=str,
-                    help='strategy to compute saliencies of channels', dest='strategy',
-                    choices=['dfpc', 'l1', 'random'])
-parser.add_argument('--prune-coupled', default=1, type=int,
-                    help='prune coupled channels is set to 1', dest='prunecoupled',
-                    choices=[0, 1])
+parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strategy to compute saliencies of channels',
+                    dest='strategy', choices=['dfpc', 'l1', 'random'])
+parser.add_argument('--prune-coupled', default=1, type=int, help='prune coupled channels is set to 1',
+                    dest='prunecoupled', choices=[0, 1])
 
 args = parser.parse_args()
 
-best_acc1 = 0
-if args.dataset in ['cifar10']:
-    from models import *
-elif args.dataset in ['cifar100']:
-    from models_100 import *
 
 def main():
-    if args.seed is not None:
-        random.seed(args.seed)
-        torch.manual_seed(args.seed)
-        cudnn.deterministic = True
-        warnings.warn('You have chosen to seed training. '
-                      'This will turn on the CUDNN deterministic setting, '
-                      'which can slow down your training considerably! '
-                      'You may see unexpected behavior when restarting '
-                      'from checkpoints.')
-
     if args.gpu is not None:
-        warnings.warn('You have chosen a specific GPU. This will completely '
-                      'disable data parallelism.')
+        warnings.warn('You have chosen a specific GPU. This will completely disable data parallelism.')
 
     main_worker(args.gpu, args)
 
 
 def main_worker(gpu, args):
-    global best_acc1
     args.gpu = gpu
 
-    # Data loading code
-    if args.dataset in ['cifar100']:
-        data_path = './data'
+    Data, Label, record, result = data_combine(False, False, 5, True, True, True)
+    X_train, X_test, y_train, y_test = train_test_split(Data, Label, test_size=0.05, random_state=40)
+    test_xt = torch.from_numpy(X_test.astype(np.float32))
+    test_yt = torch.from_numpy(y_test.astype(np.float32))
+    testData = subDataset(test_xt, test_yt)
+    val_loader = torch.utils.data.DataLoader(dataset=testData, batch_size=args.batch_size, shuffle=True)
 
-        transform_train = transforms.Compose([
-                            #transforms.ToPILImage(),
-                            transforms.RandomCrop(32, padding=4),
-                            transforms.RandomHorizontalFlip(),
-                            transforms.RandomRotation(15),
-                            transforms.ToTensor(),
-                            transforms.Normalize((0.5070751592371323, 0.48654887331495095, 0.4409178433670343), #mean
-                                                    (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)) #stddev
-                        ])
-        transform_test = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5070751592371323, 0.48654887331495095, 0.4409178433670343), #mean
-                                    (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)) #stddev
-        ])
+    # Load checkpoint and define model
+    pruning_iteration = 0
+    print("=> using pre-trained model")
+    base_model = ResNet(BasicBlock, [1, 1, 1, 1])
+    state_dict = torch.load('./0830_1111_Alpha1.pt')
+    base_model.load_state_dict(state_dict['state_dict'])
 
-        train_set = torchvision.datasets.CIFAR100(
-                        root='./data', train=True, download=True, transform=transform_train)
-        test_set = torchvision.datasets.CIFAR100(
-                        root='./data', train=False, download=True, transform=transform_test)
-
-        train_loader = torch.utils.data.DataLoader(
-                        train_set, batch_size=128, shuffle=True, num_workers=2)
-        val_loader = torch.utils.data.DataLoader(
-                            test_set, batch_size=100, shuffle=False, num_workers=2)
-    elif args.dataset in ['cifar10']:
-        data_path = './data'
-
-        transform_train = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                    std=[0.229, 0.224, 0.225]) # these mean and var are from official PyTorch ImageNet example
-        ])
-        transform_test = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                    std=[0.229, 0.224, 0.225])
-        ])
-
-        train_set = CIFAR10(data_path,
-                            train=True,
-                            download=True,
-                            transform=transform_train)
-        test_set = CIFAR10(data_path,
-                            train=False,
-                            download=True,
-                            transform=transform_test)
-
-        train_loader = torch.utils.data.DataLoader(train_set,
-                                batch_size=args.batch_size, #keep it 128
-                                num_workers=args.workers,
-                                shuffle=True,
-                                pin_memory=True)
-        val_loader = torch.utils.data.DataLoader(test_set,
-                                    batch_size=args.batch_size,
-                                    num_workers=args.workers,
-                                    shuffle=False,
-                                    pin_memory=True)
-    else:
-        traindir = os.path.join(args.data, 'train')
-        valdir = os.path.join(args.data, 'val')
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                        std=[0.229, 0.224, 0.225])
-
-        train_dataset = datasets.ImageFolder(
-            traindir,
-            transforms.Compose([
-                transforms.RandomResizedCrop(224),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                normalize,
-            ]))
-
-        train_sampler = None
-
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
-            num_workers=args.workers, pin_memory=True, sampler=train_sampler)
-
-        val_loader = torch.utils.data.DataLoader(
-            datasets.ImageFolder(valdir, transforms.Compose([
-                transforms.Resize(256),
-                transforms.CenterCrop(224),
-                transforms.ToTensor(),
-                normalize,
-            ])),
-            batch_size=args.batch_size, shuffle=False,
-            num_workers=args.workers, pin_memory=True)
-    
-    # loading model for pruning
-
-    if args.gpu is not None:
-        print("Use GPU: {} for training".format(args.gpu))
-
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint")
-            base_model, unpruned_accuracy, pruning_iteration = LoadBaseModel()
-            print("=> loaded checkpoint")
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
-    else:
-        pruning_iteration = 0
-        # create model
-        if args.dataset in ['cifar100']:
-            if 'resnet50' in args.arch:
-                print("=> using pre-trained model of 'resnet50'")
-                base_model = ResNet50()
-                state_dict = torch.load('./pretrained_checkpoints/cifar100_resnet50_ckpt.pth')['net']
-            elif 'resnet101' in args.arch:
-                print("=> using pre-trained model of 'resnet101'")
-                base_model = ResNet101()
-                state_dict = torch.load('./pretrained_checkpoints/cifar100_resnet101_ckpt.pth')['net']
-            base_model.load_state_dict(DataParallelStateDict_To_StateDict(state_dict))
-            del state_dict
-        elif args.dataset in ['cifar10']:
-            if 'resnet50' in args.arch:
-                print("=> using pre-trained model of 'resnet50'")
-                base_model = ResNet50()
-                state_dict = torch.load('./pretrained_checkpoints/cifar10_resnet50_ckpt.pth')['net']
-            elif 'resnet101' in args.arch:
-                print("=> using pre-trained model of 'resnet101'")
-                base_model = ResNet101()
-                state_dict = torch.load('./pretrained_checkpoints/cifar10_resnet101_ckpt.pth')['net']
-            base_model.load_state_dict(DataParallelStateDict_To_StateDict(state_dict))
-            del state_dict
-        elif 'resnet' in args.arch:
-            print("=> using pre-trained model of '{}'".format(args.arch))
-            base_model = models.__dict__[args.arch](pretrained=True).to('cpu')
-        else:
-            raise ValueError('Specified model architecture is not supported.')
     net = model = copy.deepcopy(base_model)
-    macs, params = get_model_complexity_info(net, (3, 32, 32), as_strings=True, print_per_layer_stat=False)
+    macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
     del net
     model = ToAppropriateDevice(copy.deepcopy(base_model), args)
 
     cudnn.benchmark = True
 
     # define loss function (criterion)
-    criterion = nn.CrossEntropyLoss().cuda(args.gpu)
+    criterion = loss_soft_add().cuda(args.gpu)
 
     accuracy = validate(val_loader, model, criterion, args)
     print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
     print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
-    
-    if args.evaluate:
-        return
-    
-    if args.resume:
-        pass
-    else:
-        unpruned_accuracy = accuracy
+    unpruned_accuracy = accuracy
 
     print('Initializing Pruner...')
     pruner = GenThinPruner(base_model, args)
@@ -307,17 +103,16 @@ def main_worker(gpu, args):
         save_checkpoint({
             'pruning_iteration': pruning_iteration,
             'unpruned_accuracy': unpruned_accuracy,
-            'arch': args.arch,
             'model': model,
             'state_dict': model.state_dict(),
             'acc1': acc1,
         }, is_best, filename='dataparallel_model.pth.tar')
 
         save_checkpoint({
-                    'arch': args.arch,
-                    'model': base_model
-                }, is_best, filename='base_model.pth.tar')
-    
+            'arch': args.arch,
+            'model': base_model
+        }, is_best, filename='base_model.pth.tar')
+
         del model, base_model
 
         base_model, _, _ = LoadBaseModel()
@@ -327,6 +122,7 @@ def main_worker(gpu, args):
         print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
         print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
         accuracy = acc1
+
 
 def validate(val_loader, model, criterion, args):
     batch_time = AverageMeter('Time', ':6.3f', Summary.NONE)
@@ -374,7 +170,8 @@ def validate(val_loader, model, criterion, args):
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'best_'+filename)
+        shutil.copyfile(filename, 'best_' + filename)
+
 
 class Summary(Enum):
     NONE = 0
@@ -382,8 +179,10 @@ class Summary(Enum):
     SUM = 2
     COUNT = 3
 
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f', summary_type=Summary.AVERAGE):
         self.name = name
         self.fmt = fmt
@@ -405,7 +204,7 @@ class AverageMeter(object):
     def __str__(self):
         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
-    
+
     def summary(self):
         fmtstr = ''
         if self.summary_type is Summary.NONE:
@@ -418,7 +217,7 @@ class AverageMeter(object):
             fmtstr = '{name} {count:.3f}'
         else:
             raise ValueError('invalid summary type %r' % self.summary_type)
-        
+
         return fmtstr.format(**self.__dict__)
 
 
@@ -473,12 +272,7 @@ def ToAppropriateDevice(model, args):
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
     else:
-        # DataParallel will divide and allocate batch_size to all available GPUs
-        if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
-            model.features = torch.nn.DataParallel(model.features)
-            model.cuda()
-        else:
-            model = torch.nn.DataParallel(model).cuda()
+        model = torch.nn.DataParallel(model).cuda()
     return model
 
 def LoadBaseModel():
