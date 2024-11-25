@@ -100,6 +100,7 @@ class GenThinPruner():
         self.num_processors = args.num_processors
         # fetch size of input and output tensors to each layer.
         self.model_info = summary(self.model, (10, 5, 5))
+        print(self.model_info)
         self.args = args
         del self.model
 
@@ -207,67 +208,104 @@ class GenThinPruner():
         return min_score_gc, min_score_channel
 
     def ResnetGeometricConstraints(self, model):
-        # Each element of the dictionary geometric constraint consists of a dictionary with 3 keys.
-        # First key consists the name of layers in the set A of a geometric constraints
-        # Second key consists the name of layers in the set B of a geometric constraints
-        # Third key contains layers in the transformation function F that need to be specified explicitly.
+        # 初始化几何约束字典
         geometric_constraints = {}
 
-        # first constraint
-        geometric_constraints[0] = {'A':['conv1'], 'B':['layer1.0.conv1', 'layer1.0.downsample.0'], 'dependent_layers':['bn1']}
+        # 1. 处理第一层卷积：conv1_bias 到 layer1.0.conv1
+        geometric_constraints[0] = {
+            'A': ['conv1_bias'],  # 模型的第一层是 conv1_bias
+            'B': ['layer1.0.conv1'],  # 下一步连接到 layer1 的第一层
+            'dependent_layers': ['bn1']
+        }
 
-        # constraints in each layer-block of ResNet with bottleneck blocks.
-        for layer_index in range(1,5):
-            layer_name = 'layer{}'.format(layer_index)
-            layer_object = rgetattr(model, layer_name)
-            for bottleneck_index in range(len(layer_object)):
-                bottleneck_name = layer_name + '.{}'.format(bottleneck_index)
-                geometric_constraints[len(geometric_constraints)] = {'A':[bottleneck_name+'.conv1'], \
-                                        'B':[bottleneck_name+'.conv2'], 'dependent_layers':[bottleneck_name+'.bn1']}
-                geometric_constraints[len(geometric_constraints)] = {'A':[bottleneck_name+'.conv2'], \
-                                        'B':[bottleneck_name+'.conv3'], 'dependent_layers':[bottleneck_name+'.bn2']}
-            if layer_index > 1:
+        # 2. 遍历 layer1 到 layer4 的层块
+        prev_layer_name = None  # 用于存储前一层的名称
+        prev_layer_object = None
+
+        for layer_index in range(1, 5):
+            layer_name = f'layer{layer_index}'
+            layer_object = getattr(model, layer_name)  # 获取对应的 layer 模块
+
+            # 遍历 layer 内的每个 bottleneck/block
+            for block_index in range(len(layer_object)):
+                block_name = f'{layer_name}.{block_index}'
+                block = layer_object[block_index]
+
+                # 添加 conv1 -> conv2 约束
+                geometric_constraints[len(geometric_constraints)] = {
+                    'A': [f'{block_name}.conv1'],
+                    'B': [f'{block_name}.conv2'],
+                    'dependent_layers': [f'{block_name}.bn1']
+                }
+
+                # 如果 block 包含 conv3（Bottleneck 块）
+                if hasattr(block, 'conv3'):
+                    geometric_constraints[len(geometric_constraints)] = {
+                        'A': [f'{block_name}.conv2'],
+                        'B': [f'{block_name}.conv3'],
+                        'dependent_layers': [f'{block_name}.bn2']
+                    }
+
+            # 3. 添加跨层约束（如 layer1 到 layer2）
+            if prev_layer_object is not None:
                 A = []
                 B = []
                 dependent_layers = []
-                for bottleneck_index in range(len(prev_layer_object)):
-                    bottleneck_name = prev_layer_name + '.{}'.format(bottleneck_index)
-                    if bottleneck_index == 0:
-                        A.append(bottleneck_name + '.downsample.0')
-                        dependent_layers.append(bottleneck_name + '.downsample.1')
+
+                for prev_block_index in range(len(prev_layer_object)):
+                    prev_block_name = f'{prev_layer_name}.{prev_block_index}'
+                    if prev_block_index == 0:
+                        A.append(f'{prev_block_name}.downsample.0')  # downsample 层的卷积
+                        dependent_layers.append(f'{prev_block_name}.downsample.1')  # downsample 层的 BN
                     else:
-                        B.append(bottleneck_name+'.conv1')
-                    A.append(bottleneck_name+'.conv3')
-                    dependent_layers.append(bottleneck_name+'.bn3')
-                B.append(layer_name + '.0.conv1')
-                B.append(layer_name + '.0.downsample.0')
+                        B.append(f'{prev_block_name}.conv1')
 
-                geometric_constraints[len(geometric_constraints)] = {'A': A, 'B': B, 'dependent_layers': dependent_layers}
-                    
-                del A, B, dependent_layers
-            prev_layer_object = layer_object
+                    A.append(f'{prev_block_name}.conv3')
+                    dependent_layers.append(f'{prev_block_name}.bn3')
+
+                B.append(f'{layer_name}.0.conv1')  # 当前层第一个 block 的输入
+                geometric_constraints[len(geometric_constraints)] = {
+                    'A': A,
+                    'B': B,
+                    'dependent_layers': dependent_layers
+                }
+
             prev_layer_name = layer_name
+            prev_layer_object = layer_object
 
+        # 4. 处理降维模块 conv2
         A = []
         B = []
         dependent_layers = []
-        for bottleneck_index in range(len(prev_layer_object)):
-            bottleneck_name = prev_layer_name + '.{}'.format(bottleneck_index)
-            if bottleneck_index == 0:
-                A.append(bottleneck_name + '.downsample.0')
-                dependent_layers.append(bottleneck_name + '.downsample.1')
-            else:
-                B.append(bottleneck_name+'.conv1')
-            A.append(bottleneck_name+'.conv3')
-            dependent_layers.append(bottleneck_name+'.bn3')
-        B.append('fc')
 
-        geometric_constraints[len(geometric_constraints)] = {'A': A, 'B': B, 'dependent_layers': dependent_layers}
-            
-        del A, B, dependent_layers
+        for block_index in range(len(prev_layer_object)):
+            block_name = f'{prev_layer_name}.{block_index}'
+            if block_index == 0:
+                A.append(f'{block_name}.downsample.0')
+                dependent_layers.append(f'{block_name}.downsample.1')
+            else:
+                B.append(f'{block_name}.conv1')
+
+            A.append(f'{block_name}.conv3')
+            dependent_layers.append(f'{block_name}.bn3')
+
+        B.append('conv2.0')  # conv2 中的 1x1 卷积
+        dependent_layers.append('conv2.1')  # conv2 中的 BatchNorm
+        geometric_constraints[len(geometric_constraints)] = {
+            'A': A,
+            'B': B,
+            'dependent_layers': dependent_layers
+        }
+
+        # 5. 处理全连接层 fc
+        geometric_constraints[len(geometric_constraints)] = {
+            'A': ['conv2.2'],  # conv2 最后的激活层
+            'B': ['fc'],  # 全连接层
+            'dependent_layers': []  # 无依赖层
+        }
 
         return geometric_constraints
-    
+
 
     def get_conv_matrix(self, input_height, input_width, weights, stride, pad):
         # Get entries to fill into the sparse matrix
@@ -364,11 +402,18 @@ class GenThinPruner():
         for layer_name in constraint['A']:
             if 'conv' in layer_name:
                 bn_layer_name = layer_name.replace('conv', 'bn')
+                if bn_layer_name.endswith('_bias'):  # 修复错误命名
+                    bn_layer_name = bn_layer_name.replace('_bias', '')
             elif 'downsample' in  layer_name:
                 bn_layer_name = layer_name[:-1] + '1'
             else:
                 continue
-            multiply_ips.append([bn_layer_name, layer_name, layer_name+'_joint'])
+            if layer_name.endswith('_bias'):
+                joint_layer_name = layer_name.replace('_bias', '_joint')
+            else:
+                joint_layer_name = layer_name + '_joint'
+            multiply_ips.append([bn_layer_name, layer_name, joint_layer_name])
+            # multiply_ips.append([bn_layer_name, layer_name, layer_name+'_joint'])
 
         with Pool(max_workers=self.num_processors) as pool:
             for result in pool.map(self.pool_compute_score_matrix, ips):

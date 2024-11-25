@@ -31,7 +31,7 @@ parser.add_argument('--accuracy-threshold', default=2.5, type=float,
                     help='validation accuracy drop feasible for the pruned model', dest='accuracy_threshold')
 parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
-parser.add_argument('--num-processes', default=5, type=int,
+parser.add_argument('--num-processes', default=3, type=int,
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
 parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strategy to compute saliencies of channels',
                     dest='strategy', choices=['dfpc', 'l1', 'random'])
@@ -56,14 +56,13 @@ def main_worker(gpu, args):
     test_xt = torch.from_numpy(X_test.astype(np.float32))
     test_yt = torch.from_numpy(y_test.astype(np.float32))
     testData = subDataset(test_xt, test_yt)
-    val_loader = torch.utils.data.DataLoader(dataset=testData, batch_size=args.batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(dataset=testData, batch_size=64, shuffle=True)
 
     # Load checkpoint and define model
     pruning_iteration = 0
     print("=> using pre-trained model")
     base_model = ResNet(BasicBlock, [1, 1, 1, 1])
-    state_dict = torch.load('./0830_1111_Alpha1.pt')
-    base_model.load_state_dict(state_dict['state_dict'])
+    base_model.load_state_dict(torch.load('./0830_1111_Alpha1.pt'))
 
     net = model = copy.deepcopy(base_model)
     macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
@@ -75,10 +74,10 @@ def main_worker(gpu, args):
     # define loss function (criterion)
     criterion = loss_soft_add().cuda(args.gpu)
 
-    accuracy = validate(val_loader, model, criterion, args)
+    # accuracy = validate(val_loader, model, criterion, args)
     print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
     print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
-    unpruned_accuracy = accuracy
+    # unpruned_accuracy = accuracy
 
     print('Initializing Pruner...')
     pruner = GenThinPruner(base_model, args)
