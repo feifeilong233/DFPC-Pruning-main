@@ -212,9 +212,6 @@ class GenThinPruner():
         # 初始化几何约束字典
         geometric_constraints = {}
 
-        # 获取模型层的 OrderedDict
-        model_dict = model.state_dict()
-
         # -------------------
         # 1. 处理输入层与 layer1
         # -------------------
@@ -233,20 +230,15 @@ class GenThinPruner():
         for layer_index in range(1, 5):  # 遍历 layer1 到 layer4
             layer_name = f'layer{layer_index}'
             layer_object = getattr(model, layer_name)  # 获取对应的 layer 模块
-
             for block_index in range(len(layer_object)):  # 遍历每个 block
                 block_name = f'{layer_name}.{block_index}'
-                block = layer_object[block_index]
 
-                # 添加 conv1 -> conv2 约束
                 geometric_constraints[len(geometric_constraints)] = {
                     'A': [f'{block_name}.conv1'],
                     'B': [f'{block_name}.conv2'],
                     'dependent_layers': [f'{block_name}.bn1']
                 }
-
-                # 如果是 Bottleneck，处理 conv2 -> conv3
-                if hasattr(block, 'conv3'):
+                if hasattr(layer_object[block_index], 'conv3'):
                     geometric_constraints[len(geometric_constraints)] = {
                         'A': [f'{block_name}.conv2'],
                         'B': [f'{block_name}.conv3'],
@@ -323,7 +315,7 @@ class GenThinPruner():
 
         # fc 层约束
         geometric_constraints[len(geometric_constraints)] = {
-            'A': ['conv2.2'],  # conv2 的最后一层
+            'A': ['conv2.0'],  # conv2 的最后一层
             'B': ['fc'],  # 全连接层
             'dependent_layers': []  # 无依赖层
         }
