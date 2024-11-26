@@ -212,23 +212,29 @@ class GenThinPruner():
         # 初始化几何约束字典
         geometric_constraints = {}
 
-        # 1. 处理第一层卷积：conv1_bias 到 layer1.0.conv1
+        # 获取模型层的 OrderedDict
+        model_dict = model.state_dict()
+
+        # -------------------
+        # 1. 处理输入层与 layer1
+        # -------------------
         geometric_constraints[0] = {
-            'A': ['conv1_bias'],  # 模型的第一层是 conv1_bias
-            'B': ['layer1.0.conv1'],  # 下一步连接到 layer1 的第一层
+            'A': ['conv1_bias'],  # 起始层
+            'B': ['layer1.0.conv1'],  # 连接到 layer1 的第一层
             'dependent_layers': ['bn1']
         }
 
-        # 2. 遍历 layer1 到 layer4 的层块
-        prev_layer_name = None  # 用于存储前一层的名称
+        # -------------------
+        # 2. 遍历 ResNet 的主干部分
+        # -------------------
+        prev_layer_name = None
         prev_layer_object = None
 
-        for layer_index in range(1, 5):
+        for layer_index in range(1, 5):  # 遍历 layer1 到 layer4
             layer_name = f'layer{layer_index}'
             layer_object = getattr(model, layer_name)  # 获取对应的 layer 模块
 
-            # 遍历 layer 内的每个 bottleneck/block
-            for block_index in range(len(layer_object)):
+            for block_index in range(len(layer_object)):  # 遍历每个 block
                 block_name = f'{layer_name}.{block_index}'
                 block = layer_object[block_index]
 
@@ -239,7 +245,7 @@ class GenThinPruner():
                     'dependent_layers': [f'{block_name}.bn1']
                 }
 
-                # 如果 block 包含 conv3（Bottleneck 块）
+                # 如果是 Bottleneck，处理 conv2 -> conv3
                 if hasattr(block, 'conv3'):
                     geometric_constraints[len(geometric_constraints)] = {
                         'A': [f'{block_name}.conv2'],
@@ -247,7 +253,9 @@ class GenThinPruner():
                         'dependent_layers': [f'{block_name}.bn2']
                     }
 
-            # 3. 添加跨层约束（如 layer1 到 layer2）
+            # -------------------
+            # 3. 处理跨层约束（Downsample）
+            # -------------------
             if prev_layer_object is not None:
                 A = []
                 B = []
@@ -255,52 +263,67 @@ class GenThinPruner():
 
                 for prev_block_index in range(len(prev_layer_object)):
                     prev_block_name = f'{prev_layer_name}.{prev_block_index}'
-                    if prev_block_index == 0:
-                        A.append(f'{prev_block_name}.downsample.0')  # downsample 层的卷积
-                        dependent_layers.append(f'{prev_block_name}.downsample.1')  # downsample 层的 BN
-                    else:
-                        B.append(f'{prev_block_name}.conv1')
 
-                    A.append(f'{prev_block_name}.conv3')
-                    dependent_layers.append(f'{prev_block_name}.bn3')
+                    # 如果存在 downsample，处理其约束
+                    if hasattr(prev_layer_object[prev_block_index], 'downsample') and \
+                            prev_layer_object[prev_block_index].downsample is not None:
+                        A.append(f'{prev_block_name}.downsample.0')
+                        dependent_layers.append(f'{prev_block_name}.downsample.1')
 
-                B.append(f'{layer_name}.0.conv1')  # 当前层第一个 block 的输入
-                geometric_constraints[len(geometric_constraints)] = {
-                    'A': A,
-                    'B': B,
-                    'dependent_layers': dependent_layers
-                }
+                    # 添加 block 的最后一层到 A
+                    A.append(f'{prev_block_name}.conv3' if hasattr(prev_layer_object[prev_block_index], 'conv3')
+                             else f'{prev_block_name}.conv2')
+                    dependent_layers.append(f'{prev_block_name}.bn3' if hasattr(prev_block_name, 'conv3')
+                                            else f'{prev_block_name}.bn2')
 
+                # 当前层的第一个 block 作为 B
+                if hasattr(layer_object[0], 'conv1'):
+                    B.append(f'{layer_name}.0.conv1')
+
+                # 添加约束
+                if A and B:
+                    geometric_constraints[len(geometric_constraints)] = {
+                        'A': A,
+                        'B': B,
+                        'dependent_layers': dependent_layers
+                    }
+
+            # 更新上一层
             prev_layer_name = layer_name
             prev_layer_object = layer_object
 
-        # 4. 处理降维模块 conv2
+        # -------------------
+        # 4. 处理最后的特殊层 conv2 和全连接层 fc
+        # -------------------
         A = []
         B = []
         dependent_layers = []
 
         for block_index in range(len(prev_layer_object)):
             block_name = f'{prev_layer_name}.{block_index}'
-            if block_index == 0:
+
+            if hasattr(prev_layer_object[block_index], 'downsample') and \
+                    prev_layer_object[block_index].downsample is not None:
                 A.append(f'{block_name}.downsample.0')
                 dependent_layers.append(f'{block_name}.downsample.1')
-            else:
-                B.append(f'{block_name}.conv1')
 
-            A.append(f'{block_name}.conv3')
-            dependent_layers.append(f'{block_name}.bn3')
+            A.append(f'{block_name}.conv3' if hasattr(prev_layer_object[block_index], 'conv3')
+                     else f'{block_name}.conv2')
+            dependent_layers.append(f'{block_name}.bn3' if hasattr(prev_block_name, 'conv3')
+                                    else f'{block_name}.bn2')
 
-        B.append('conv2.0')  # conv2 中的 1x1 卷积
-        dependent_layers.append('conv2.1')  # conv2 中的 BatchNorm
+        # 特殊层处理
+        B.append('conv2.0')  # 1x1 卷积降维
+        dependent_layers.append('conv2.1')  # BatchNorm
         geometric_constraints[len(geometric_constraints)] = {
             'A': A,
             'B': B,
             'dependent_layers': dependent_layers
         }
 
-        # 5. 处理全连接层 fc
+        # fc 层约束
         geometric_constraints[len(geometric_constraints)] = {
-            'A': ['conv2.2'],  # conv2 最后的激活层
+            'A': ['conv2.2'],  # conv2 的最后一层
             'B': ['fc'],  # 全连接层
             'dependent_layers': []  # 无依赖层
         }
@@ -466,7 +489,7 @@ class GenThinPruner():
         ips = []
         for layer_name_B in constraint['B']:
             for layer_name_A in constraint['A']:
-                if layer_name_B > layer_name_A or 'fc' in layer_name_B:
+                if layer_name_B > layer_name_A or 'fc' in layer_name_B or layer_name_B in ['conv2']:
                     ips.append([score_matrices[layer_name_B], score_matrices[layer_name_A+'_joint'], num_channels])
         for ip in ips:
             result = self.pool_compute_channels_score_from_matrices(ip)

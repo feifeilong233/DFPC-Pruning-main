@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from data_combine1021Alpha_great_combineAll import data_combine
 from loss_function_0712Alpha import loss_soft_add
-from pruner.genthin_single import GenThinPruner
+from pruner.genthin import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
 from try_resnet_0706 import ResNet, BasicBlock
@@ -116,7 +116,7 @@ def main_worker(gpu, args):
 
         base_model, _, _ = LoadBaseModel()
         net = model = copy.deepcopy(base_model)
-        macs, params = get_model_complexity_info(net, (3, 32, 32), as_strings=True, print_per_layer_stat=False)
+        macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
         del net
         print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
         print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
