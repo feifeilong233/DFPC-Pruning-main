@@ -43,9 +43,9 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='DFPC PyTorch Implementation')
 parser.add_argument('--data', metavar='DIR',
-                    help='path to dataset')
+                    help='path to dataset', default='./data')
 parser.add_argument('--dataset',
-                    help='dataset name', choices=['imagenet', 'cifar10', 'cifar100'])
+                    help='dataset name', choices=['imagenet', 'cifar10', 'cifar100'], default='cifar10')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
@@ -90,7 +90,7 @@ parser.add_argument('--accuracy-drop-to-stop', default=1, type=float,
                     dest='accuracy_drop_to_stop')
 parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
-parser.add_argument('--num-processes', default=5, type=int, # More the merrier, but RAM consumption will increase drastically.
+parser.add_argument('--num-processes', default=3, type=int, # More the merrier, but RAM consumption will increase drastically.
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
 parser.add_argument('--scoring-strategy', default='dfpc', type=str,
                     help='strategy to compute saliencies of channels', dest='strategy',

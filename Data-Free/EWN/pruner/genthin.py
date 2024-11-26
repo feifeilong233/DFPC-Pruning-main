@@ -487,7 +487,7 @@ class GenThinPruner():
         ips = []
         for layer_name_B in constraint['B']:
             for layer_name_A in constraint['A']:
-                if layer_name_B > layer_name_A or 'fc' in layer_name_B or layer_name_B in ['conv2']:
+                if layer_name_B > layer_name_A or any(x in layer_name_B for x in ['fc', 'conv2']):
                     ips.append([score_matrices[layer_name_B], score_matrices[layer_name_A+'_joint'], num_channels])
         with Pool(max_workers=self.num_processors) as pool:
             for result in pool.map(self.pool_compute_channels_score_from_matrices, ips):

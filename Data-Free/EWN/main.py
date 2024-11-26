@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from data_combine1021Alpha_great_combineAll import data_combine
 from loss_function_0712Alpha import loss_soft_add
-from pruner.genthin import GenThinPruner
+from pruner.genthin_single import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
 from try_resnet_0706 import ResNet, BasicBlock
@@ -31,7 +31,7 @@ parser.add_argument('--accuracy-threshold', default=2.5, type=float,
                     help='validation accuracy drop feasible for the pruned model', dest='accuracy_threshold')
 parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
-parser.add_argument('--num-processes', default=3, type=int,
+parser.add_argument('--num-processes', default=5, type=int,
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
 parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strategy to compute saliencies of channels',
                     dest='strategy', choices=['dfpc', 'l1', 'random'])
