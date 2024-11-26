@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from data_combine1021Alpha_great_combineAll import data_combine
 from loss_function_0712Alpha import loss_soft_add
-from pruner.genthin import GenThinPruner
+from pruner.genthin_single import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
 from try_resnet_0706 import ResNet, BasicBlock
