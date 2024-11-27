@@ -18,7 +18,8 @@ from tqdm import tqdm
 
 from data_combine1021Alpha_great_combineAll import data_combine
 from loss_function_0712Alpha import loss_soft_add
-from pruner.genthin_single import GenThinPruner
+from loss_function_0712Alpha import test_soft_add
+from pruner.genthin import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
 from try_resnet_0706 import ResNet, BasicBlock
@@ -27,13 +28,15 @@ parser = argparse.ArgumentParser(description='Model Pruning Implementation')
 parser.add_argument('--resume', default='0830_1111_Alpha1.pt', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
+parser.add_argument('-p', '--print-freq', default=100, type=int,
+                    metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--accuracy-threshold', default=2.5, type=float,
                     help='validation accuracy drop feasible for the pruned model', dest='accuracy_threshold')
 parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
 parser.add_argument('--num-processes', default=5, type=int,
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
-parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strategy to compute saliencies of channels',
+parser.add_argument('--scoring-strategy', default='l1', type=str, help='strategy to compute saliencies of channels',
                     dest='strategy', choices=['dfpc', 'l1', 'random'])
 parser.add_argument('--prune-coupled', default=1, type=int, help='prune coupled channels is set to 1',
                     dest='prunecoupled', choices=[0, 1])
@@ -74,16 +77,16 @@ def main_worker(gpu, args):
     # define loss function (criterion)
     criterion = loss_soft_add().cuda(args.gpu)
 
-    # accuracy = validate(val_loader, model, criterion, args)
+    accuracy = validate(val_loader, model, criterion, args)
     print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
     print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
-    # unpruned_accuracy = accuracy
+    unpruned_accuracy = accuracy
 
     print('Initializing Pruner...')
     pruner = GenThinPruner(base_model, args)
     print('Computing Saliency Scores...')
     pruner.ComputeSaliencyScores(base_model)
-    while accuracy >= 10.5:
+    while accuracy >= 2.5:
         pruning_iteration += 1
         print('Pruning iteration {}...'.format(pruning_iteration))
         print('Pruning the model...')
@@ -127,10 +130,10 @@ def validate(val_loader, model, criterion, args):
     batch_time = AverageMeter('Time', ':6.3f', Summary.NONE)
     losses = AverageMeter('Loss', ':.4e', Summary.NONE)
     top1 = AverageMeter('Acc@1', ':6.2f', Summary.AVERAGE)
-    top5 = AverageMeter('Acc@5', ':6.2f', Summary.AVERAGE)
+    # top5 = AverageMeter('Acc@5', ':6.2f', Summary.AVERAGE)
     progress = ProgressMeter(
         len(val_loader),
-        [batch_time, losses, top1, top5],
+        [batch_time, losses, top1],
         prefix='Test: ')
 
     # switch to evaluate mode
@@ -149,10 +152,14 @@ def validate(val_loader, model, criterion, args):
             loss = criterion(output, target)
 
             # measure accuracy and record loss
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            # acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            test_cal = test_soft_add().cuda(args.gpu)
+            acc1 = test_cal(output, target)
+            acc1 = 100 * acc1 ** 0.5
             losses.update(loss.item(), images.size(0))
-            top1.update(acc1[0], images.size(0))
-            top5.update(acc5[0], images.size(0))
+            top1.update(acc1, images.size(0))
+            # top1.update(acc1[0], images.size(0))
+            # top5.update(acc5[0], images.size(0))
 
             # measure elapsed time
             batch_time.update(time.time() - end)

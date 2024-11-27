@@ -42,8 +42,8 @@ class test_soft_add(nn.Module):
             #out[24] = torch.relu(prenew[24])
             #out[24] = prenew[24]
             loss += torch.mean(((out[0:24] - tarnew[0:24]).pow(2)))#-(out[24]*torch.log(out[24]) - (1-tarnew[24])*torch.log(1-tarnew[24]))
-        print("out it",out)
-        print("target is ", tarnew)
+        # print("out it",out)
+        # print("target is ", tarnew)
         return loss / tar.size(0)
 
 
