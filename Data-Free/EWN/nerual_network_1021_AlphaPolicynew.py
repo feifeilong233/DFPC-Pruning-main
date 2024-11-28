@@ -29,6 +29,7 @@ from subDataset import subDataset
 #import tensorboard
 from try_resnet_1128 import ResNet
 from try_resnet_1128 import BasicBlock
+from models import *
 #from try_resnet import Bottleneck
 from loss_function_0712Alpha import loss_soft_add, test_recall
 from loss_function_0712Alpha import test_soft_add
@@ -94,7 +95,7 @@ test_loader = DataLoader.DataLoader(dataset=testData, batch_size=batch_size, shu
 # 实例化
 current_time = time.strftime("%Y-%m-%dT%H:%M", time.localtime())
 device = torch.device("cuda")
-net = ResNet(BasicBlock, [1, 1, 1, 1])
+net = MobileNetV2()
 net=net.cuda(device)
 #     print(name)
 #     print(param.data)
