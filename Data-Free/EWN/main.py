@@ -36,7 +36,7 @@ parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
 parser.add_argument('--num-processes', default=5, type=int,
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
-parser.add_argument('--scoring-strategy', default='l1', type=str, help='strategy to compute saliencies of channels',
+parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strategy to compute saliencies of channels',
                     dest='strategy', choices=['dfpc', 'l1', 'random'])
 parser.add_argument('--prune-coupled', default=1, type=int, help='prune coupled channels is set to 1',
                     dest='prunecoupled', choices=[0, 1])
@@ -55,7 +55,7 @@ def main_worker(gpu, args):
     args.gpu = gpu
 
     Data, Label, record, result = data_combine(False, False, 5, True, True, True)
-    X_train, X_test, y_train, y_test = train_test_split(Data, Label, test_size=0.05, random_state=40)
+    X_train, X_test, y_train, y_test = train_test_split(Data, Label, test_size=0.01, random_state=40)
     test_xt = torch.from_numpy(X_test.astype(np.float32))
     test_yt = torch.from_numpy(y_test.astype(np.float32))
     testData = subDataset(test_xt, test_yt)

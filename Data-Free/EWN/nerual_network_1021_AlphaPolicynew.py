@@ -1,6 +1,6 @@
 import os
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 #0623更新，将数据输入通道加到了6个
 #0706更新，将数据通道数增加到10，并尝试加入数据增强——数据对称
 from sklearn.model_selection import train_test_split
@@ -27,8 +27,8 @@ from data_combine1021Alpha_great_combineAll import data_combine
 from subDataset import subDataset
 # import hiddenlayer as hl
 #import tensorboard
-from try_resnet_1003 import ResNet
-from try_resnet_1003 import BasicBlock
+from try_resnet_1128 import ResNet
+from try_resnet_1128 import BasicBlock
 #from try_resnet import Bottleneck
 from loss_function_0712Alpha import loss_soft_add, test_recall
 from loss_function_0712Alpha import test_soft_add
@@ -41,7 +41,7 @@ from save_model import load_model
 # 定义超参数
 input_size = 5  # 棋盘总尺寸5*5
 num_classes = 25  # 标签的种类数
-num_epochs = 300  # 训练的总循环周期
+num_epochs = 200  # 训练的总循环周期
 batch_size = 64  # 一个撮（批次）的大小，64张图片
 build_graph_structure = False  # 是否画出网络结构
 use_tensorboard = False  # 是否使用tensorboard
@@ -133,7 +133,7 @@ optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999
 
 # 开始训练循环
 for epoch in range(num_epochs):
-    file1 = open('0402_1111_Alpha_train.txt', 'a+')
+    file1 = open('1128_1111_Alpha_train.txt', 'a+')
 
     # 当前epoch的结果保存下来
     print("we are in ", epoch)
@@ -180,11 +180,11 @@ for epoch in range(num_epochs):
     print('the accuracy is ', accuracy_2)
     file1.close()
     if epoch % 5 == 0:
-        save_model('0402model_dict_Alpha.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '0402_1111_Alpha2.pt')
+        save_model('1128model_dict_Alpha.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1128_1111_Alpha2.pt')
     if use_test is True:
         if epoch % 5 == 0:
-            file2 = open('0402_1111_Alpha_test.txt', 'a+')
+            file2 = open('1128_1111_Alpha_test.txt', 'a+')
             net.eval()
             test_accuracy = 0
             test_recall_v = 0
@@ -224,7 +224,7 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-torch.save(net.state_dict(), '0402_1111_Alpha2.pt')
+torch.save(net.state_dict(), '1128_1111_Alpha2.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 

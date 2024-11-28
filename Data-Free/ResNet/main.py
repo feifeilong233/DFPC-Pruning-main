@@ -88,7 +88,7 @@ parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
 parser.add_argument('--num-processes', default=5, type=int, # More the merrier, but RAM consumption will increase drastically.
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
-parser.add_argument('--scoring-strategy', default='l1', type=str,
+parser.add_argument('--scoring-strategy', default='dfpc', type=str,
                     help='strategy to compute saliencies of channels', dest='strategy',
                     choices=['dfpc', 'l1', 'random'])
 parser.add_argument('--prune-coupled', default=1, type=int,
