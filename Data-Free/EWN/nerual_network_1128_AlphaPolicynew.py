@@ -132,8 +132,24 @@ optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999
 # if use_tensorboard is True:
 #     writer = SummaryWriter(log_dir='logs')
 
+# 加载模型和优化器状态
+start_epoch = 200  # 训练中断时的最后 epoch
+checkpoint_path = '1128model_dict_Alpha1.pth'  # 保存的 checkpoint 文件
+
+if os.path.exists(checkpoint_path):
+    checkpoint = torch.load(checkpoint_path)
+    net.load_state_dict(checkpoint['model_dict'])  # 加载模型权重
+    optimizer.load_state_dict(checkpoint['optimizer_dict'])  # 加载优化器状态
+    start_epoch = checkpoint['epoch'] + 1  # 从中断的下一个 epoch 开始
+    print(f"Loaded checkpoint from '{checkpoint_path}', starting from epoch {start_epoch}")
+else:
+    print(f"No checkpoint found at '{checkpoint_path}', starting from scratch.")
+
+optimizer.param_groups[0]['betas'] = (0.5, 0.999)  # 设置新的 betas
+print(f"Updated optimizer betas to: {optimizer.param_groups[0]['betas']}")
+
 # 开始训练循环
-for epoch in range(num_epochs):
+for epoch in range(start_epoch, num_epochs):
     file1 = open('1128_1111_Alpha_train.txt', 'a+')
 
     # 当前epoch的结果保存下来
@@ -181,8 +197,8 @@ for epoch in range(num_epochs):
     print('the accuracy is ', accuracy_2)
     file1.close()
     if epoch % 5 == 0:
-        save_model('1128model_dict_Alpha.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '1128_1111_Alpha2.pt')
+        save_model('1128model_dict_Alpha1.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1128_1111_Alpha1.pt')
     if use_test is True:
         if epoch % 5 == 0:
             file2 = open('1128_1111_Alpha_test.txt', 'a+')
@@ -225,7 +241,7 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-torch.save(net.state_dict(), '1128_1111_Alpha2.pt')
+torch.save(net.state_dict(), '1128_1111_Alpha1.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 
