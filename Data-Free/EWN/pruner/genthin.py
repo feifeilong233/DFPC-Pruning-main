@@ -440,11 +440,9 @@ class GenThinPruner():
                 score_matrices['fc'] = score_matrices['fc'] @ self._get_layer_score_matrix(
                     avgpool_layer, self.model_info['avgpool']
                 )
-            elif 'conv2.0' in self.model_info:  # 使用 conv2 最后一层作为替代
-                conv2_layer = rgetattr(model, 'conv2.0')
-                score_matrices['fc'] = score_matrices['fc'] @ self._get_layer_score_matrix(
-                    conv2_layer, self.model_info['conv2.0']
-                )
+            elif 'conv2.1' in self.model_info:  # 使用 conv2 最后一层作为替代
+                conv2_layer = rgetattr(model, 'conv2.1')
+                score_matrices['bn2.0'] = self._get_layer_score_matrix(conv2_layer, self.model_info['conv2.1'])
             else:
                 raise ValueError("Neither 'avgpool' nor 'conv2' found for processing fc constraints.")
         
