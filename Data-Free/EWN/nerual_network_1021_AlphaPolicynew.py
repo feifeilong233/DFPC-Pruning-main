@@ -1,6 +1,6 @@
 import os
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 #0623更新，将数据输入通道加到了6个
 #0706更新，将数据通道数增加到10，并尝试加入数据增强——数据对称
 from sklearn.model_selection import train_test_split
@@ -169,16 +169,19 @@ for epoch in range(num_epochs):
 
         # print(output)
         # target = target.reshape(batch_size, -1)
-        if (epoch * len(train_loader) + batch_idx + 1) % 20 == 0:
-            accuracy_2 = test_cal(output, target)
-            accuracy_2 = accuracy_2 ** 0.5
-            # print('the accuracy is ', accuracy_2)
+        # if (epoch * len(train_loader) + batch_idx + 1) % 20 == 0:
+        #     accuracy_2 = test_cal(output, target)
+        #     accuracy_2 = accuracy_2 ** 0.5
+        #     print('the accuracy is ', accuracy_2)
         Before = list(net.parameters())[1].clone()
         loss = criterion(output, target)
         optimizer.zero_grad()
         train_loss = loss.item() * data.size(0)
         if (epoch * len(train_loader) + batch_idx + 1) % 40 == 0:
-            print(loss)
+            accuracy_2 = test_cal(output, target)
+            accuracy_2 = accuracy_2 ** 0.5
+            print('the accuracy is ', accuracy_2)
+            print('the loss is ', loss)
         loss.backward()
         optimizer.step()
         # After = list(net.parameters())[1].clone()
