@@ -1,6 +1,6 @@
 import os
 
-# os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 #0623更新，将数据输入通道加到了6个
 #0706更新，将数据通道数增加到10，并尝试加入数据增强——数据对称
 from sklearn.model_selection import train_test_split
@@ -95,7 +95,7 @@ test_loader = DataLoader.DataLoader(dataset=testData, batch_size=batch_size, shu
 # 实例化
 current_time = time.strftime("%Y-%m-%dT%H:%M", time.localtime())
 device = torch.device("cuda")
-net = ResNet10()
+net = MobileNetV2Adp()
 net=net.cuda(device)
 #     print(name)
 #     print(param.data)
@@ -110,7 +110,7 @@ test_cal = test_soft_add().cuda(device)
 test_recall_cal = test_recall().cuda(device)
 learning_rate = 0.01
 #optimizer = torch.optim.SGD(resnet50.parameters(), lr=learning_rate, )
-optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.5, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 # 优化器
 #optimizer = optim.SGD(net.parameters(), lr=0.00001, weight_decay=0.1)
 # optimizer = optim.Adagrad(net.parameters(), lr=0.001, weight_decay=0.1)  # 定义优化器
@@ -132,9 +132,25 @@ optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999
 # if use_tensorboard is True:
 #     writer = SummaryWriter(log_dir='logs')
 
+# 加载模型和优化器状态
+# start_epoch = 200  # 训练中断时的最后 epoch
+# checkpoint_path = '1128model_dict_Alpha1.pth'  # 保存的 checkpoint 文件
+#
+# if os.path.exists(checkpoint_path):
+#     checkpoint = torch.load(checkpoint_path)
+#     net.load_state_dict(checkpoint['model_dict'])  # 加载模型权重
+#     optimizer.load_state_dict(checkpoint['optimizer_dict'])  # 加载优化器状态
+#     start_epoch = checkpoint['epoch'] + 1  # 从中断的下一个 epoch 开始
+#     print(f"Loaded checkpoint from '{checkpoint_path}', starting from epoch {start_epoch}")
+# else:
+#     print(f"No checkpoint found at '{checkpoint_path}', starting from scratch.")
+#
+# optimizer.param_groups[0]['betas'] = (0.5, 0.999)  # 设置新的 betas
+# print(f"Updated optimizer betas to: {optimizer.param_groups[0]['betas']}")
+
 # 开始训练循环
 for epoch in range(num_epochs):
-    file1 = open('1130_1111_Alpha_train.txt', 'a+')
+    file1 = open('1202_mobilenet_train.txt', 'a+')
 
     # 当前epoch的结果保存下来
     print("we are in ", epoch)
@@ -156,12 +172,13 @@ for epoch in range(num_epochs):
         if (epoch * len(train_loader) + batch_idx + 1) % 20 == 0:
             accuracy_2 = test_cal(output, target)
             accuracy_2 = accuracy_2 ** 0.5
-            print('the accuracy is ', accuracy_2)
+            # print('the accuracy is ', accuracy_2)
         Before = list(net.parameters())[1].clone()
         loss = criterion(output, target)
         optimizer.zero_grad()
         train_loss = loss.item() * data.size(0)
-        # print(train_loss)
+        if (epoch * len(train_loader) + batch_idx + 1) % 40 == 0:
+            print(loss)
         loss.backward()
         optimizer.step()
         # After = list(net.parameters())[1].clone()
@@ -181,11 +198,11 @@ for epoch in range(num_epochs):
     print('the accuracy is ', accuracy_2)
     file1.close()
     if epoch % 5 == 0:
-        save_model('1130model_dict_Alpha.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '1130_1111_Alpha2.pt')
+        save_model('1202_mobilenet.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1202_mobilenet.pt')
     if use_test is True:
         if epoch % 5 == 0:
-            file2 = open('1130_1111_Alpha_test.txt', 'a+')
+            file2 = open('1202_mobilenet_test.txt', 'a+')
             net.eval()
             test_accuracy = 0
             test_recall_v = 0
@@ -225,7 +242,7 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-torch.save(net.state_dict(), '1130_1111_Alpha2.pt')
+torch.save(net.state_dict(), '1202_mobilenet.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 

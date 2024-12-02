@@ -61,17 +61,33 @@ class loss_soft_add(nn.Module):
         loss = 0
         device = torch.device("cuda")
         for j in range(0, tar.size(0)):
+
             prenew = pre[j]
             tarnew = tar[j]
 
-            out = torch.zeros(25).cuda(device)
+            out = torch.zeros(25)
+            # out = self.trans(out)
+            out = out.cuda(device)
+            # print(out)
             for i in range(0, 6):
                 oneStatus = prenew[i * 4:(i + 1) * 4]
                 out[i * 4:(i + 1) * 4] = 3 * expand * torch.softmax(oneStatus, 0)
+            #out[24] = pre[24]
+            #print(prenew[24])
+            #out[24] = torch.tanh(torch.relu(prenew[24]))
             out[24] = torch.relu(prenew[24])
 
-            # 修改为 L1 损失
-            loss += torch.mean(torch.abs(out[0:24] - tarnew[0:24]))
+            #out[24] = prenew[24]
+            # if prenew[24]>0.8:
+            #     out[24]=torch.tensor(1)
+            # elif prenew[24]<-0.8 :
+            #     out[24]=torch.tensor(-1)
+            # else :
+            #out[24]=prenew[24]
+            #print(prenew[24])
+            #out[24] = torch.softmax(winner,0)
+            loss += torch.mean(((out[0:24] - tarnew[0:24]).pow(2)))#-(out[24]*torch.log(out[24]) - (1-tarnew[24])*torch.log(1-tarnew[24]))
+            #loss += -(out[24]*torch.log(out[24]) - (3-tarnew[24])*torch.log(3-tarnew[24])) - torch.dot(tarnew[0:24], torch.log(out[0:24]))
         return loss
 
 

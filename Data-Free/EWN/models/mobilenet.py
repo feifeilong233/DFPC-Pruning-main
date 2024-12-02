@@ -36,19 +36,21 @@ class Block(nn.Module):
         return out
 
 
-class MobileNetV2(nn.Module):
+class MobileNetV2Adp(nn.Module):
     # (expansion, out_planes, num_blocks, stride)
-    # 修改配置，减少复杂性
-    cfg = [(1, 16, 1, 1),  # 通道更少
-           (2, 32, 2, 1),  # 减少 expansion
-           (2, 64, 2, 2)]  # 减少层数
+    cfg = [(1, 16, 1, 1),
+           (6, 32, 2, 1),
+           (6, 64, 2, 1),
+           (6, 128, 1, 1)]
 
     def __init__(self, num_classes=25):
-        super(MobileNetV2, self).__init__()
+        super(MobileNetV2Adp, self).__init__()
         # NOTE: change conv1 stride 2 -> 1 for CIFAR10
-        self.conv1 = nn.Conv2d(10, 16, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.layers = self._make_layers(in_planes=16)
+        self.conv1 = nn.Conv2d(10, 32, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.layers = self._make_layers(in_planes=32)
+        self.conv2 = nn.Conv2d(128, 64, kernel_size=1, stride=1, padding=0, bias=False)  # 降低通道
+        self.bn2 = nn.BatchNorm2d(64)
         self.linear = nn.Linear(64, num_classes)
 
     def _make_layers(self, in_planes):
@@ -63,6 +65,7 @@ class MobileNetV2(nn.Module):
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layers(out)
+        out = F.relu(self.bn2(self.conv2(out)))
         out = F.adaptive_avg_pool2d(out, (1, 1))
         out = out.view(out.size(0), -1)
         out = self.linear(out)
@@ -70,7 +73,7 @@ class MobileNetV2(nn.Module):
 
 
 def test():
-    net = MobileNetV2()
+    net = MobileNetV2Adp()
     x = torch.randn(2,10,5,5)
     y = net(x)
     print(y.size())
