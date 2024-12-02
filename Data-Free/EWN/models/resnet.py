@@ -9,7 +9,6 @@ Reference:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import nerual_CBAM as CBAM
 
 
 class BasicBlock(nn.Module):
@@ -25,13 +24,13 @@ class BasicBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
 
         self.is_downsample = False
-        if stride != 1 or in_planes != self.expansion*planes:
-            self.is_downsample = True
-            self.downsample = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes,
-                          kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
-            )
+        # if stride != 1 or in_planes != self.expansion*planes:
+        self.is_downsample = True
+        self.downsample = nn.Sequential(
+            nn.Conv2d(in_planes, self.expansion * planes,
+                      kernel_size=1, stride=stride, bias=False),
+            nn.BatchNorm2d(self.expansion * planes)
+        )
 
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
@@ -93,7 +92,6 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=1)
         self.avgpool = nn.AdaptiveAvgPool2d(output_size=(1,1))
         self.fc = nn.Linear(512*block.expansion, num_classes)
-        self.cbam = CBAM.cbam_block(channel=10)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -104,7 +102,6 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.cbam(x)
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
@@ -136,12 +133,12 @@ def ResNet152():
     return ResNet(Bottleneck, [3, 8, 36, 3])
 
 
-def ResNet26():
-    return ResNet(Bottleneck, [1, 1, 1, 1])
+def ResNet10():
+    return ResNet(BasicBlock, [1, 1, 1, 1])
 
 
 def test():
-    net = ResNet26()
+    net = ResNet10()
     y = net(torch.randn(1, 10, 5, 5))
     print(y.size())
 

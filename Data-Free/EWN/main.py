@@ -23,7 +23,7 @@ from pruner.genthin_single import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
 from try_resnet_0706 import ResNet, BasicBlock
-from models import *
+# from models import *
 
 parser = argparse.ArgumentParser(description='Model Pruning Implementation')
 parser.add_argument('--resume', default='0830_1111_Alpha1.pt', type=str, metavar='PATH',
