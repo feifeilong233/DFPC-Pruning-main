@@ -19,15 +19,13 @@ from tqdm import tqdm
 from data_combine1021Alpha_great_combineAll import data_combine
 from loss_function_0712Alpha import loss_soft_add
 from loss_function_0712Alpha import test_soft_add
-from pruner.genthin_single import GenThinPruner
+from pruner.genthin_resnet10 import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
-from try_resnet_0706 import ResNet, BasicBlock
-# from models import *
+# from try_resnet_0706 import ResNet, BasicBlock
+from models import *
 
 parser = argparse.ArgumentParser(description='Model Pruning Implementation')
-parser.add_argument('--resume', default='0830_1111_Alpha1.pt', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('-p', '--print-freq', default=100, type=int,
                     metavar='N', help='print frequency (default: 10)')
@@ -37,7 +35,7 @@ parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
 parser.add_argument('--num-processes', default=5, type=int,
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
-parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strategy to compute saliencies of channels',
+parser.add_argument('--scoring-strategy', default='l1', type=str, help='strategy to compute saliencies of channels',
                     dest='strategy', choices=['dfpc', 'l1', 'random'])
 parser.add_argument('--prune-coupled', default=1, type=int, help='prune coupled channels is set to 1',
                     dest='prunecoupled', choices=[0, 1])
@@ -65,8 +63,8 @@ def main_worker(gpu, args):
     # Load checkpoint and define model
     pruning_iteration = 0
     print("=> using pre-trained model")
-    base_model = ResNet(BasicBlock, [1, 1, 1, 1])
-    base_model.load_state_dict(torch.load('./0830_1111_Alpha1.pt'))
+    base_model = ResNet10()
+    base_model.load_state_dict(torch.load('./1201_1111_downsample.pt'))
 
     net = model = copy.deepcopy(base_model)
     macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
@@ -76,6 +74,7 @@ def main_worker(gpu, args):
     cudnn.benchmark = True
 
     # define loss function (criterion)
+    criterionnew = nn.L1Loss().cuda(args.gpu)
     criterion = loss_soft_add().cuda(args.gpu)
 
     accuracy = validate(val_loader, model, criterion, args)
@@ -87,7 +86,7 @@ def main_worker(gpu, args):
     pruner = GenThinPruner(base_model, args)
     print('Computing Saliency Scores...')
     pruner.ComputeSaliencyScores(base_model)
-    while accuracy >= 2.5:
+    while accuracy <= 12.5:
         pruning_iteration += 1
         print('Pruning iteration {}...'.format(pruning_iteration))
         print('Pruning the model...')
@@ -101,7 +100,7 @@ def main_worker(gpu, args):
         acc1 = validate(val_loader, model, criterion, args)
 
         # remember best pruned model and save checkpoint
-        is_best = (acc1 >= unpruned_accuracy - args.accuracy_threshold)
+        is_best = (acc1 <= unpruned_accuracy + args.accuracy_threshold)
 
         save_checkpoint({
             'pruning_iteration': pruning_iteration,
@@ -112,9 +111,10 @@ def main_worker(gpu, args):
         }, is_best, filename='dataparallel_model.pth.tar')
 
         save_checkpoint({
-            'arch': args.arch,
             'model': base_model
         }, is_best, filename='base_model.pth.tar')
+
+        torch.save(base_model.state_dict(), '1201_1111_downsample_pruned' + str(pruning_iteration) + '.pt')
 
         del model, base_model
 

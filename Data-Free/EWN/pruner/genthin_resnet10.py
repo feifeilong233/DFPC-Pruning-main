@@ -216,16 +216,14 @@ class GenThinPruner():
         # first constraint
         geometric_constraints[0] = {'A':['conv1'], 'B':['layer1.0.conv1', 'layer1.0.downsample.0'], 'dependent_layers':['bn1']}
 
-        # constraints in each layer-block of ResNet with bottleneck blocks.
+        # constraints in each layer-block of ResNet with BasicBlock.
         for layer_index in range(1,5):
             layer_name = 'layer{}'.format(layer_index)
             layer_object = rgetattr(model, layer_name)
-            for bottleneck_index in range(len(layer_object)):
-                bottleneck_name = layer_name + '.{}'.format(bottleneck_index)
-                geometric_constraints[len(geometric_constraints)] = {'A':[bottleneck_name+'.conv1'], \
-                                        'B':[bottleneck_name+'.conv2'], 'dependent_layers':[bottleneck_name+'.bn1']}
-                geometric_constraints[len(geometric_constraints)] = {'A':[bottleneck_name+'.conv2'], \
-                                        'B':[bottleneck_name+'.conv3'], 'dependent_layers':[bottleneck_name+'.bn2']}
+            for block_index in range(len(layer_object)):
+                block_name = layer_name + '.{}'.format(block_index)
+                geometric_constraints[len(geometric_constraints)] = {'A':[block_name+'.conv1'], \
+                                        'B':[block_name+'.conv2'], 'dependent_layers':[block_name+'.bn1']}
             if layer_index > 1:
                 A = []
                 B = []
@@ -237,8 +235,8 @@ class GenThinPruner():
                         dependent_layers.append(bottleneck_name + '.downsample.1')
                     else:
                         B.append(bottleneck_name+'.conv1')
-                    A.append(bottleneck_name+'.conv3')
-                    dependent_layers.append(bottleneck_name+'.bn3')
+                    A.append(bottleneck_name+'.conv2')
+                    dependent_layers.append(bottleneck_name+'.bn2')
                 B.append(layer_name + '.0.conv1')
                 B.append(layer_name + '.0.downsample.0')
 
@@ -258,8 +256,8 @@ class GenThinPruner():
                 dependent_layers.append(bottleneck_name + '.downsample.1')
             else:
                 B.append(bottleneck_name+'.conv1')
-            A.append(bottleneck_name+'.conv3')
-            dependent_layers.append(bottleneck_name+'.bn3')
+            A.append(bottleneck_name+'.conv2')
+            dependent_layers.append(bottleneck_name+'.bn2')
         B.append('fc')
 
         geometric_constraints[len(geometric_constraints)] = {'A': A, 'B': B, 'dependent_layers': dependent_layers}
