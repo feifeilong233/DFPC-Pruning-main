@@ -43,7 +43,7 @@ from save_model import load_model
 input_size = 5  # 棋盘总尺寸5*5
 num_classes = 25  # 标签的种类数
 num_epochs = 300  # 训练的总循环周期
-batch_size = 64  # 一个撮（批次）的大小，64张图片
+batch_size = 128  # 一个撮（批次）的大小，64张图片
 build_graph_structure = False  # 是否画出网络结构
 use_tensorboard = False  # 是否使用tensorboard
 use_test = True
@@ -103,7 +103,7 @@ net=net.cuda(device)
 #     print("-----------------------------------")
 
 # 损失函数
-criterionnew = nn.MSELoss().cuda(device)
+criterionnew = nn.L1Loss().cuda(device)
 # criterion = nn.CrossEntropyLoss()
 criterion = loss_soft_add().cuda(device)
 test_cal = test_soft_add().cuda(device)
@@ -134,7 +134,7 @@ optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.5, 0.999
 
 # 开始训练循环
 for epoch in range(num_epochs):
-    file1 = open('1201_1111_downsample_train.txt', 'a+')
+    # file1 = open('1203_1111_downsample_train.txt', 'a+')
 
     # 当前epoch的结果保存下来
     print("we are in ", epoch)
@@ -153,15 +153,19 @@ for epoch in range(num_epochs):
 
         # print(output)
         # target = target.reshape(batch_size, -1)
-        if (epoch * len(train_loader) + batch_idx + 1) % 20 == 0:
+        # if (epoch * len(train_loader) + batch_idx + 1) % 20 == 0:
+        #     accuracy_2 = test_cal(output, target)
+        #     accuracy_2 = accuracy_2 ** 0.5
+        #     print('the accuracy is ', accuracy_2)
+        Before = list(net.parameters())[1].clone()
+        loss = criterionnew(output, target)
+        optimizer.zero_grad()
+        train_loss = loss.item() * data.size(0)
+        if (epoch * len(train_loader) + batch_idx + 1) % 40 == 0:
             accuracy_2 = test_cal(output, target)
             accuracy_2 = accuracy_2 ** 0.5
             print('the accuracy is ', accuracy_2)
-        Before = list(net.parameters())[1].clone()
-        loss = criterion(output, target)
-        optimizer.zero_grad()
-        train_loss = loss.item() * data.size(0)
-        # print(train_loss)
+            print('the loss is ', loss)
         loss.backward()
         optimizer.step()
         # After = list(net.parameters())[1].clone()
@@ -177,15 +181,15 @@ for epoch in range(num_epochs):
     # print('the recall is ', accuracy_1)
     accuracy_2 = test_cal(output, target)
     accuracy_2 = accuracy_2 ** 0.5
-    file1.write(str(accuracy_2) + '\n')
+    # file1.write(str(accuracy_2) + '\n')
     print('the accuracy is ', accuracy_2)
-    file1.close()
-    if epoch % 5 == 0:
-        save_model('1201_1111_downsample.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '1201_1111_downsample.pt')
+    # file1.close()
+    if epoch % 20 == 0:
+        save_model('./1203_pre/1203_1111_downsample' + str(epoch) + '.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1203_1111_downsample.pt')
     if use_test is True:
         if epoch % 5 == 0:
-            file2 = open('1201_1111_downsample_test.txt', 'a+')
+            # file2 = open('1203_1111_downsample_test.txt', 'a+')
             net.eval()
             test_accuracy = 0
             test_recall_v = 0
@@ -203,8 +207,8 @@ for epoch in range(num_epochs):
             # output=torch.from_numpy(output.astype(np.float32))
             test_accuracy /= len(test_loader)
             print(test_accuracy)
-            file2.write(str(test_accuracy) + '\n')
-            file2.close()
+            # file2.write(str(test_accuracy) + '\n')
+            # file2.close()
             # test_recall_v /= len(test_loader)
             # print('the test recall is ', test_recall_v)
 
@@ -225,7 +229,8 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-torch.save(net.state_dict(), '1201_1111_downsample.pt')
+save_model('1203_1111_downsample.pth', epoch, optimizer, net)
+torch.save(net.state_dict(), '1203_1111_downsample.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 
