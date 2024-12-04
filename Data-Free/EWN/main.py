@@ -17,8 +17,8 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 from data_combine1021Alpha_great_combineAll import data_combine
-from loss_function_0712Alpha import loss_soft_add
-from loss_function_0712Alpha import test_soft_add
+from loss_function_1204L1 import loss_soft_add
+from loss_function_1204L1 import test_soft_add
 from pruner.genthin_resnet10 import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
@@ -35,7 +35,7 @@ parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
 parser.add_argument('--num-processes', default=5, type=int,
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
-parser.add_argument('--scoring-strategy', default='l1', type=str, help='strategy to compute saliencies of channels',
+parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strategy to compute saliencies of channels',
                     dest='strategy', choices=['dfpc', 'l1', 'random'])
 parser.add_argument('--prune-coupled', default=1, type=int, help='prune coupled channels is set to 1',
                     dest='prunecoupled', choices=[0, 1])
@@ -108,13 +108,13 @@ def main_worker(gpu, args):
             'model': model,
             'state_dict': model.state_dict(),
             'acc1': acc1,
-        }, is_best, filename='dataparallel_model.pth.tar')
+        }, is_best, filename='dataparallel_model_l1.pth.tar')
 
         save_checkpoint({
             'model': base_model
-        }, is_best, filename='base_model.pth.tar')
+        }, is_best, filename='base_model_l1.pth.tar')
 
-        torch.save(base_model.state_dict(), '1201_1111_downsample_pruned' + str(pruning_iteration) + '.pt')
+        torch.save(base_model.state_dict(), './checkpoints/1201_1111_downsample_l1' + str(pruning_iteration) + '.pt')
 
         del model, base_model
 
