@@ -17,8 +17,8 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 from data_combine1021Alpha_great_combineAll import data_combine
-from loss_function_1204L1 import loss_soft_add
-from loss_function_1204L1 import test_soft_add
+from loss_function_0712Alpha import loss_soft_add
+from loss_function_0712Alpha import test_soft_add
 from pruner.genthin_resnet10 import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
@@ -63,8 +63,9 @@ def main_worker(gpu, args):
     # Load checkpoint and define model
     pruning_iteration = 0
     print("=> using pre-trained model")
-    base_model = ResNet10()
-    base_model.load_state_dict(torch.load('./1201_1111_downsample.pt'))
+    dict = torch.load('best_base_model.pth.tar')
+    base_model = dict['model']
+    base_model.load_state_dict(torch.load('./checkpoints/1201_1111_downsample_dfpc25.pt'))
 
     net = model = copy.deepcopy(base_model)
     macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
@@ -111,10 +112,9 @@ def main_worker(gpu, args):
         }, is_best, filename='dataparallel_model_l1.pth.tar')
 
         save_checkpoint({
-            'model': base_model
-        }, is_best, filename='base_model_l1.pth.tar')
-
-        torch.save(base_model.state_dict(), './checkpoints/1201_1111_downsample_l1' + str(pruning_iteration) + '.pt')
+            'model': base_model,
+            'state_dict': base_model.state_dict(),
+        }, is_best, filename='./checkpoints/base_model_l1_' + str(pruning_iteration) + '.pth.tar')
 
         del model, base_model
 

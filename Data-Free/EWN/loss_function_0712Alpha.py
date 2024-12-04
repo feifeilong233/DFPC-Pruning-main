@@ -88,7 +88,7 @@ class loss_soft_add(nn.Module):
             #out[24] = torch.softmax(winner,0)
             loss += torch.mean(((out[0:24] - tarnew[0:24]).pow(2)))#-(out[24]*torch.log(out[24]) - (1-tarnew[24])*torch.log(1-tarnew[24]))
             #loss += -(out[24]*torch.log(out[24]) - (3-tarnew[24])*torch.log(3-tarnew[24])) - torch.dot(tarnew[0:24], torch.log(out[0:24]))
-        return loss
+        return loss/tar.size(0)
 
 
 class test_recall(nn.Module):  # 注意这个召回率不是严格的召回率
