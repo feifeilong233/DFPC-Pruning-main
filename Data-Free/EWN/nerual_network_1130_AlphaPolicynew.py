@@ -158,7 +158,7 @@ for epoch in range(num_epochs):
         #     accuracy_2 = accuracy_2 ** 0.5
         #     print('the accuracy is ', accuracy_2)
         Before = list(net.parameters())[1].clone()
-        loss = criterionnew(output, target)
+        loss = criterion(output, target)
         optimizer.zero_grad()
         train_loss = loss.item() * data.size(0)
         if (epoch * len(train_loader) + batch_idx + 1) % 40 == 0:
