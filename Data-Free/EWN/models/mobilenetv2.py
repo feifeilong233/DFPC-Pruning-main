@@ -29,8 +29,8 @@ class Block(nn.Module):
             )
 
     def forward(self, x):
-        out = F.leaky_relu(self.bn1(self.conv1(x)))
-        out = F.leaky_relu(self.bn2(self.conv2(out)))
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = F.relu(self.bn2(self.conv2(out)))
         out = self.bn3(self.conv3(out))
         out = out + self.shortcut(x) if self.stride==1 else out
         return out
@@ -38,13 +38,13 @@ class Block(nn.Module):
 
 class MobileNetV2(nn.Module):
     # (expansion, out_planes, num_blocks, stride)
-    cfg = [(1, 16, 1, 1),
-           (4, 24, 2, 1),
-           (4, 32, 2, 2),
-           (4, 64, 3, 2),
-           (4, 96, 2, 1),
-           (4, 128, 1, 2),  # 减少输出维度
-           (4, 256, 1, 1)]  # 减少分类器规模
+    cfg = [(1,  16, 1, 1),
+           (6,  24, 2, 1),  # NOTE: change stride 2 -> 1 for CIFAR10
+           (6,  32, 3, 2),
+           (6,  64, 4, 2),
+           (6,  96, 3, 1),
+           (6, 160, 3, 2),
+           (6, 320, 1, 1)]
 
     def __init__(self, num_classes=25):
         super(MobileNetV2, self).__init__()
@@ -52,9 +52,9 @@ class MobileNetV2(nn.Module):
         self.conv1 = nn.Conv2d(10, 32, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(32)
         self.layers = self._make_layers(in_planes=32)
-        self.conv2 = nn.Conv2d(256, 128, kernel_size=1, stride=1, padding=0, bias=False)
-        self.bn2 = nn.BatchNorm2d(128)
-        self.linear = nn.Linear(128, num_classes)
+        self.conv2 = nn.Conv2d(320, 1280, kernel_size=1, stride=1, padding=0, bias=False)
+        self.bn2 = nn.BatchNorm2d(1280)
+        self.linear = nn.Linear(1280, num_classes)
 
     def _make_layers(self, in_planes):
         layers = []
@@ -82,4 +82,4 @@ def test():
     y = net(x)
     print(y.size())
 
-test()
+# test()
