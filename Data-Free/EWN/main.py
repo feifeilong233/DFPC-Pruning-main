@@ -65,7 +65,7 @@ def main_worker(gpu, args):
     print("=> using pre-trained model")
     # dict = torch.load('best_base_model.pth.tar')
     base_model = MobileNetV2()
-    base_model.load_state_dict(torch.load('1128_1111_Alpha1.pt'))
+    base_model.load_state_dict(torch.load('1128_1111_Alpha2.pt'))
 
     net = model = copy.deepcopy(base_model)
     macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
@@ -293,9 +293,9 @@ def ToAppropriateDevice(model, args):
     return model
 
 def LoadBaseModel():
-    base_model_dict = torch.load('base_model.pth.tar', map_location=torch.device('cpu'))
+    base_model_dict = torch.load('base_model_l1.pth.tar', map_location=torch.device('cpu'))
     base_model = base_model_dict['model']
-    model_dict = torch.load('dataparallel_model.pth.tar', map_location=torch.device('cpu'))
+    model_dict = torch.load('dataparallel_model_l1.pth.tar', map_location=torch.device('cpu'))
     state_dict = model_dict['state_dict']
     unpruned_accuracy = model_dict['unpruned_accuracy']
     pruning_iteration = model_dict['pruning_iteration']
