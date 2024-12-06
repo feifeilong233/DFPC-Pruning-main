@@ -19,7 +19,7 @@ from tqdm import tqdm
 from data_combine1021Alpha_great_combineAll import data_combine
 from loss_function_0712Alpha import loss_soft_add
 from loss_function_0712Alpha import test_soft_add
-from pruner.genthin_mb import GenThinPruner
+from pruner.genthin_resnet10 import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
 # from try_resnet_0706 import ResNet, BasicBlock
@@ -64,8 +64,8 @@ def main_worker(gpu, args):
     pruning_iteration = 0
     print("=> using pre-trained model")
     # dict = torch.load('best_base_model.pth.tar')
-    base_model = MobileNetV2()
-    base_model.load_state_dict(torch.load('1128_1111_Alpha2.pt'))
+    base_model = ResNet10()
+    base_model.load_state_dict(torch.load('1201_1111_downsample.pt'))
 
     net = model = copy.deepcopy(base_model)
     macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
@@ -109,16 +109,16 @@ def main_worker(gpu, args):
             'model': model,
             'state_dict': model.state_dict(),
             'acc1': acc1,
-        }, is_best, filename='dataparallel_model_l1.pth.tar')
+        }, is_best, filename='dataparallel_model_res.pth.tar')
 
         save_checkpoint({
             'model': base_model,
-        }, is_best, filename='base_model_l1.pth.tar')
+        }, is_best, filename='base_model_res.pth.tar')
 
         _save_checkpoint({
             'model': base_model,
             'state_dict': base_model.state_dict(),
-        }, is_best, filename='base_model_l1_' + str(pruning_iteration) + '.pth.tar')
+        }, is_best, filename='base_model_res_' + str(pruning_iteration) + '.pth.tar')
 
         del model, base_model
 
@@ -293,9 +293,9 @@ def ToAppropriateDevice(model, args):
     return model
 
 def LoadBaseModel():
-    base_model_dict = torch.load('base_model_l1.pth.tar', map_location=torch.device('cpu'))
+    base_model_dict = torch.load('base_model_res.pth.tar', map_location=torch.device('cpu'))
     base_model = base_model_dict['model']
-    model_dict = torch.load('dataparallel_model_l1.pth.tar', map_location=torch.device('cpu'))
+    model_dict = torch.load('dataparallel_model_res.pth.tar', map_location=torch.device('cpu'))
     state_dict = model_dict['state_dict']
     unpruned_accuracy = model_dict['unpruned_accuracy']
     pruning_iteration = model_dict['pruning_iteration']

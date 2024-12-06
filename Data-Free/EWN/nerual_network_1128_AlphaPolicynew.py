@@ -43,7 +43,7 @@ from save_model import load_model
 input_size = 5  # 棋盘总尺寸5*5
 num_classes = 25  # 标签的种类数
 num_epochs = 300  # 训练的总循环周期
-batch_size = 128  # 一个撮（批次）的大小，64张图片
+batch_size = 64  # 一个撮（批次）的大小，64张图片
 build_graph_structure = False  # 是否画出网络结构
 use_tensorboard = False  # 是否使用tensorboard
 use_test = True
@@ -108,9 +108,10 @@ criterionnew = nn.L1Loss().cuda(device)
 criterion = loss_soft_add().cuda(device)
 test_cal = test_soft_add().cuda(device)
 test_recall_cal = test_recall().cuda(device)
-learning_rate = 0.005
+learning_rate = 0.001
 #optimizer = torch.optim.SGD(resnet50.parameters(), lr=learning_rate, )
-optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.5, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+# optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 # 优化器
 #optimizer = optim.SGD(net.parameters(), lr=0.00001, weight_decay=0.1)
 # optimizer = optim.Adagrad(net.parameters(), lr=0.001, weight_decay=0.1)  # 定义优化器
@@ -132,26 +133,10 @@ optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.5, 0.999
 # if use_tensorboard is True:
 #     writer = SummaryWriter(log_dir='logs')
 
-# 加载模型和优化器状态
-# start_epoch = 200  # 训练中断时的最后 epoch
-# checkpoint_path = '1128model_dict_Alpha1.pth'  # 保存的 checkpoint 文件
-#
-# if os.path.exists(checkpoint_path):
-#     checkpoint = torch.load(checkpoint_path)
-#     net.load_state_dict(checkpoint['model_dict'])  # 加载模型权重
-#     optimizer.load_state_dict(checkpoint['optimizer_dict'])  # 加载优化器状态
-#     start_epoch = checkpoint['epoch'] + 1  # 从中断的下一个 epoch 开始
-#     print(f"Loaded checkpoint from '{checkpoint_path}', starting from epoch {start_epoch}")
-# else:
-#     print(f"No checkpoint found at '{checkpoint_path}', starting from scratch.")
-#
-# optimizer.param_groups[0]['betas'] = (0.5, 0.999)  # 设置新的 betas
-# print(f"Updated optimizer betas to: {optimizer.param_groups[0]['betas']}")
-
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2, eta_min=1e-5)
 # 开始训练循环
 for epoch in range(num_epochs):
-    file1 = open('1203_mobilenet_train.txt', 'a+')
+    # file1 = open('1204_1111_downsample_train.txt', 'a+')
 
     # 当前epoch的结果保存下来
     print("we are in ", epoch)
@@ -175,7 +160,7 @@ for epoch in range(num_epochs):
         #     accuracy_2 = accuracy_2 ** 0.5
         #     print('the accuracy is ', accuracy_2)
         Before = list(net.parameters())[1].clone()
-        loss = criterionnew(output, target)
+        loss = criterion(output, target)
         optimizer.zero_grad()
         train_loss = loss.item() * data.size(0)
         if (epoch * len(train_loader) + batch_idx + 1) % 40 == 0:
@@ -199,15 +184,15 @@ for epoch in range(num_epochs):
     # print('the recall is ', accuracy_1)
     accuracy_2 = test_cal(output, target)
     accuracy_2 = accuracy_2 ** 0.5
-    file1.write(str(accuracy_2) + '\n')
+    # file1.write(str(accuracy_2) + '\n')
     print('the accuracy is ', accuracy_2)
-    file1.close()
-    if epoch % 5 == 0:
-        save_model('1203_mobilenet.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '1203_mobilenet.pt')
+    # file1.close()
+    if epoch % 20 == 0:
+        save_model('./1203_pre/1206_mobilenetv2_' + str(epoch) + '.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1206_mobilenetv2.pt')
     if use_test is True:
         if epoch % 5 == 0:
-            file2 = open('1203_mobilenet_test.txt', 'a+')
+            # file2 = open('1204_1111_downsample_test.txt', 'a+')
             net.eval()
             test_accuracy = 0
             test_recall_v = 0
@@ -225,8 +210,8 @@ for epoch in range(num_epochs):
             # output=torch.from_numpy(output.astype(np.float32))
             test_accuracy /= len(test_loader)
             print(test_accuracy)
-            file2.write(str(test_accuracy) + '\n')
-            file2.close()
+            # file2.write(str(test_accuracy) + '\n')
+            # file2.close()
             # test_recall_v /= len(test_loader)
             # print('the test recall is ', test_recall_v)
 
@@ -247,7 +232,8 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-torch.save(net.state_dict(), '1203_mobilenet.pt')
+save_model('1206_mobilenetv2.pth', epoch, optimizer, net)
+torch.save(net.state_dict(), '1206_mobilenetv2.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 
