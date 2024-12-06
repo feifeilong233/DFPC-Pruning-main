@@ -1,6 +1,6 @@
 import os
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 #0623更新，将数据输入通道加到了6个
 #0706更新，将数据通道数增加到10，并尝试加入数据增强——数据对称
 from sklearn.model_selection import train_test_split
@@ -108,7 +108,7 @@ criterionnew = nn.L1Loss().cuda(device)
 criterion = loss_soft_add().cuda(device)
 test_cal = test_soft_add().cuda(device)
 test_recall_cal = test_recall().cuda(device)
-learning_rate = 0.001
+learning_rate = 0.01
 #optimizer = torch.optim.SGD(resnet50.parameters(), lr=learning_rate, )
 # optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
@@ -133,7 +133,7 @@ optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.9, 0.99
 # if use_tensorboard is True:
 #     writer = SummaryWriter(log_dir='logs')
 
-scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2, eta_min=1e-5)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2, eta_min=1e-4)
 # 开始训练循环
 for epoch in range(num_epochs):
     # file1 = open('1204_1111_downsample_train.txt', 'a+')
@@ -188,8 +188,8 @@ for epoch in range(num_epochs):
     print('the accuracy is ', accuracy_2)
     # file1.close()
     if epoch % 20 == 0:
-        save_model('./1203_pre/1206_mobilenetv2_' + str(epoch) + '.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '1206_mobilenetv2.pt')
+        save_model('./1203_pre/1205_mobilenetv2_' + str(epoch) + '.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1205_mobilenetv2.pt')
     if use_test is True:
         if epoch % 5 == 0:
             # file2 = open('1204_1111_downsample_test.txt', 'a+')
@@ -232,8 +232,8 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-save_model('1206_mobilenetv2.pth', epoch, optimizer, net)
-torch.save(net.state_dict(), '1206_mobilenetv2.pt')
+save_model('1205_mobilenetv2.pth', epoch, optimizer, net)
+torch.save(net.state_dict(), '1205_mobilenetv2.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 
