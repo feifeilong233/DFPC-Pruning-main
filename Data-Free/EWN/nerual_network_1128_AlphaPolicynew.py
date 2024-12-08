@@ -29,7 +29,7 @@ from subDataset import subDataset
 #import tensorboard
 # from try_resnet_1128 import ResNet
 # from try_resnet_1128 import BasicBlock
-from models import *
+from mobilenetv2sa import MobileNetV2
 #from try_resnet import Bottleneck
 from loss_function_0712Alpha import loss_soft_add, test_recall
 from loss_function_0712Alpha import test_soft_add
@@ -111,7 +111,7 @@ test_recall_cal = test_recall().cuda(device)
 learning_rate = 0.01
 #optimizer = torch.optim.SGD(resnet50.parameters(), lr=learning_rate, )
 # optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
-optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.5, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 # 优化器
 #optimizer = optim.SGD(net.parameters(), lr=0.00001, weight_decay=0.1)
 # optimizer = optim.Adagrad(net.parameters(), lr=0.001, weight_decay=0.1)  # 定义优化器
@@ -188,8 +188,8 @@ for epoch in range(num_epochs):
     print('the accuracy is ', accuracy_2)
     # file1.close()
     if epoch % 20 == 0:
-        save_model('./1203_pre/1205_mobilenetv2_' + str(epoch) + '.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '1205_mobilenetv2.pt')
+        save_model('./1203_pre/1208_mobilenetv2_' + str(epoch) + '.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1208_mobilenetv2.pt')
     if use_test is True:
         if epoch % 5 == 0:
             # file2 = open('1204_1111_downsample_test.txt', 'a+')
@@ -232,8 +232,8 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-save_model('1205_mobilenetv2.pth', epoch, optimizer, net)
-torch.save(net.state_dict(), '1205_mobilenetv2.pt')
+save_model('1208_mobilenetv2.pth', epoch, optimizer, net)
+torch.save(net.state_dict(), '1208_mobilenetv2.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 
