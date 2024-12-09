@@ -29,7 +29,7 @@ from subDataset import subDataset
 #import tensorboard
 # from try_resnet_1128 import ResNet
 # from try_resnet_1128 import BasicBlock
-from models import *
+from resnet_mqa import ResNet10
 #from try_resnet import Bottleneck
 from loss_function_0712Alpha import loss_soft_add, test_recall
 from loss_function_0712Alpha import test_soft_add
@@ -103,14 +103,15 @@ net=net.cuda(device)
 #     print("-----------------------------------")
 
 # 损失函数
-criterionnew = nn.MSELoss().cuda(device)
+criterionnew = nn.L1Loss().cuda(device)
 # criterion = nn.CrossEntropyLoss()
 criterion = loss_soft_add().cuda(device)
 test_cal = test_soft_add().cuda(device)
 test_recall_cal = test_recall().cuda(device)
 learning_rate = 0.01
 #optimizer = torch.optim.SGD(resnet50.parameters(), lr=learning_rate, )
-optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+# optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 # 优化器
 #optimizer = optim.SGD(net.parameters(), lr=0.00001, weight_decay=0.1)
 # optimizer = optim.Adagrad(net.parameters(), lr=0.001, weight_decay=0.1)  # 定义优化器
@@ -132,9 +133,10 @@ optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999
 # if use_tensorboard is True:
 #     writer = SummaryWriter(log_dir='logs')
 
+scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2, eta_min=1e-4)
 # 开始训练循环
 for epoch in range(num_epochs):
-    # file1 = open('1204_1111_downsample_train.txt', 'a+')
+    # file1 = open('1209_1111_downsample_train.txt', 'a+')
 
     # 当前epoch的结果保存下来
     print("we are in ", epoch)
@@ -168,6 +170,7 @@ for epoch in range(num_epochs):
             print('the loss is ', loss)
         loss.backward()
         optimizer.step()
+        scheduler.step()
         # After = list(net.parameters())[1].clone()
         niter = epoch * len(train_loader) + batch_idx + 1
         # print('模型的第1层更新幅度：', torch.sum(After - Before))
@@ -185,11 +188,11 @@ for epoch in range(num_epochs):
     print('the accuracy is ', accuracy_2)
     # file1.close()
     if epoch % 20 == 0:
-        save_model('./1203_pre/1204_1111_downsample' + str(epoch) + '.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '1204_1111_downsample.pt')
+        save_model('./1203_pre/1209_1111_downsample' + str(epoch) + '.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1209_1111_downsample.pt')
     if use_test is True:
         if epoch % 5 == 0:
-            # file2 = open('1204_1111_downsample_test.txt', 'a+')
+            # file2 = open('1209_1111_downsample_test.txt', 'a+')
             net.eval()
             test_accuracy = 0
             test_recall_v = 0
@@ -229,8 +232,8 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-save_model('1204_1111_downsample.pth', epoch, optimizer, net)
-torch.save(net.state_dict(), '1204_1111_downsample.pt')
+save_model('1209_1111_downsample.pth', epoch, optimizer, net)
+torch.save(net.state_dict(), '1209_1111_downsample.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 

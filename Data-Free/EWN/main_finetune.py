@@ -35,6 +35,8 @@ parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
 parser.add_argument('--num-processes', default=3, type=int,
                     help='number of simultaneous process to spawn for multiprocessing', dest='num_processors')
+parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
+                    help='number of data loading workers (default: 4)')
 parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strategy to compute saliencies of channels',
                     dest='strategy', choices=['dfpc', 'l1', 'random'])
 parser.add_argument('--prune-coupled', default=1, type=int, help='prune coupled channels is set to 1',
@@ -46,7 +48,7 @@ parser.add_argument('-b', '--batch-size', default=64, type=int,
                          'using Data Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
-parser.add_argument('--epochs', default=40, type=int, metavar='N',
+parser.add_argument('--epochs', default=1, type=int, metavar='N',
                     help='number of total epochs to run')
 
 args = parser.parse_args()
@@ -70,8 +72,8 @@ def main_worker(gpu, args):
     test_yt = torch.from_numpy(y_test.astype(np.float32))
     trainData = subDataset(train_xt, train_yt)
     testData = subDataset(test_xt, test_yt)
-    train_loader = torch.utils.data.DataLoader.DataLoader(dataset=trainData, batch_size=args.batch_size, shuffle=True)
-    val_loader = torch.utils.data.DataLoader(dataset=testData, batch_size=args.batch_size, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(dataset=trainData, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
+    val_loader = torch.utils.data.DataLoader(dataset=testData, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
     # Load checkpoint and define model
     pruning_iteration = 0
@@ -90,8 +92,8 @@ def main_worker(gpu, args):
     # define loss function (criterion)
     criterionnew = nn.L1Loss().cuda(args.gpu)
     criterion = loss_soft_add().cuda(args.gpu)
-    optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-4)
+    optimizer = torch.optim.AdamW(base_model.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=2, eta_min=1e-4)
 
     accuracy = validate(val_loader, model, criterion, args)
     print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))

@@ -9,6 +9,7 @@ Reference:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from layers.attention2d import MultiQueryAttention2d
 
 
 class BasicBlock(nn.Module):
@@ -83,6 +84,14 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.in_planes = 64
 
+        self.mqa = MultiQueryAttention2d(
+            dim=10,  # 输入通道数
+            num_heads=2,  # 注意力头数，设为 1 或 2
+            kv_stride=2,  # Key 和 Value 的下采样因子
+            query_strides=1,  # Query 不下采样
+            attn_drop=0.1,  # 注意力 Dropout
+            proj_drop=0.1,  # 投影 Dropout
+        )
         self.conv1 = nn.Conv2d(10, 64, kernel_size=3,
                                stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
@@ -102,6 +111,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        x = self.mqa(x)
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
