@@ -111,7 +111,7 @@ test_recall_cal = test_recall().cuda(device)
 learning_rate = 0.01
 #optimizer = torch.optim.SGD(resnet50.parameters(), lr=learning_rate, )
 # optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
-optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.5, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 # 优化器
 #optimizer = optim.SGD(net.parameters(), lr=0.00001, weight_decay=0.1)
 # optimizer = optim.Adagrad(net.parameters(), lr=0.001, weight_decay=0.1)  # 定义优化器

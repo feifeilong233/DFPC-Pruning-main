@@ -19,14 +19,14 @@ from tqdm import tqdm
 from data_combine1021Alpha_great_combineAll import data_combine
 from loss_function_0712Alpha import loss_soft_add
 from loss_function_0712Alpha import test_soft_add
-from pruner.genthin_resnet10 import GenThinPruner
+from pruner.genthin_mb import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
-from try_resnet_0706 import ResNet, BasicBlock
-# from models import *
+# from try_resnet_0706 import ResNet, BasicBlock
+from mobilenetv2sa import MobileNetV2
 
 parser = argparse.ArgumentParser(description='Model Pruning Implementation')
-parser.add_argument('--gpu', default=2, type=int, help='GPU id to use.')
+parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('-p', '--print-freq', default=100, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--accuracy-threshold', default=2.5, type=float,
@@ -64,8 +64,8 @@ def main_worker(gpu, args):
     pruning_iteration = 0
     print("=> using pre-trained model")
     # dict = torch.load('best_base_model.pth.tar')
-    base_model = ResNet(BasicBlock, [1, 1, 1, 1])
-    base_model.load_state_dict(torch.load('0830_1111_Alpha1.pt'))
+    base_model = MobileNetV2()
+    base_model.load_state_dict(torch.load('1208_mobilenetv2.pt'))
 
     net = model = copy.deepcopy(base_model)
     macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
@@ -83,7 +83,6 @@ def main_worker(gpu, args):
     print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
     unpruned_accuracy = accuracy
 
-    '''
     print('Initializing Pruner...')
     pruner = GenThinPruner(base_model, args)
     print('Computing Saliency Scores...')
@@ -130,7 +129,6 @@ def main_worker(gpu, args):
         print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
         print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
         accuracy = acc1
-    '''
 
 
 def validate(val_loader, model, criterion, args):
