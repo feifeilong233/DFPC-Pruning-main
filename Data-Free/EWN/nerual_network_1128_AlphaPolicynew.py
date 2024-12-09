@@ -188,8 +188,8 @@ for epoch in range(num_epochs):
     print('the accuracy is ', accuracy_2)
     # file1.close()
     if epoch % 20 == 0:
-        save_model('./1203_pre/1208_mobilenetv2_' + str(epoch) + '.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '1208_mobilenetv2.pt')
+        save_model('./1203_pre/1209_mobilenetv2mqa_' + str(epoch) + '.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1209_mobilenetv2mqa.pt')
     if use_test is True:
         if epoch % 5 == 0:
             # file2 = open('1204_1111_downsample_test.txt', 'a+')
@@ -232,8 +232,8 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-save_model('1208_mobilenetv2.pth', epoch, optimizer, net)
-torch.save(net.state_dict(), '1208_mobilenetv2.pt')
+save_model('1209_mobilenetv2mqa.pth', epoch, optimizer, net)
+torch.save(net.state_dict(), '1209_mobilenetv2mqa.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 

@@ -39,6 +39,15 @@ parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strate
                     dest='strategy', choices=['dfpc', 'l1', 'random'])
 parser.add_argument('--prune-coupled', default=1, type=int, help='prune coupled channels is set to 1',
                     dest='prunecoupled', choices=[0, 1])
+parser.add_argument('-b', '--batch-size', default=64, type=int,
+                    metavar='N',
+                    help='mini-batch size (default: 64), this is the total '
+                         'batch size of all GPUs on the current node when '
+                         'using Data Parallel or Distributed Data Parallel')
+parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
+                    metavar='LR', help='initial learning rate', dest='lr')
+parser.add_argument('--epochs', default=40, type=int, metavar='N',
+                    help='number of total epochs to run')
 
 args = parser.parse_args()
 
@@ -55,10 +64,14 @@ def main_worker(gpu, args):
 
     Data, Label, record, result = data_combine(False, False, 5, True, True, True)
     X_train, X_test, y_train, y_test = train_test_split(Data, Label, test_size=0.01, random_state=40)
+    train_xt = torch.from_numpy(X_train.astype(np.float32))
+    train_yt = torch.from_numpy(y_train.astype(np.float32))
     test_xt = torch.from_numpy(X_test.astype(np.float32))
     test_yt = torch.from_numpy(y_test.astype(np.float32))
+    trainData = subDataset(train_xt, train_yt)
     testData = subDataset(test_xt, test_yt)
-    val_loader = torch.utils.data.DataLoader(dataset=testData, batch_size=64, shuffle=True)
+    train_loader = torch.utils.data.DataLoader.DataLoader(dataset=trainData, batch_size=args.batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(dataset=testData, batch_size=args.batch_size, shuffle=True)
 
     # Load checkpoint and define model
     pruning_iteration = 0
@@ -77,6 +90,8 @@ def main_worker(gpu, args):
     # define loss function (criterion)
     criterionnew = nn.L1Loss().cuda(args.gpu)
     criterion = loss_soft_add().cuda(args.gpu)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=40, T_mult=2, eta_min=1e-4)
 
     accuracy = validate(val_loader, model, criterion, args)
     print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
@@ -98,7 +113,8 @@ def main_worker(gpu, args):
         model = copy.deepcopy(base_model)
         model = torch.nn.DataParallel(model).cuda()
 
-        acc1 = validate(val_loader, model, criterion, args)
+        acc1 = finetune(model, train_loader, val_loader, criterion, optimizer, scheduler)
+        # acc1 = validate(val_loader, model, criterion, args)
 
         # remember best pruned model and save checkpoint
         is_best = (acc1 <= unpruned_accuracy + args.accuracy_threshold)
@@ -109,16 +125,16 @@ def main_worker(gpu, args):
             'model': model,
             'state_dict': model.state_dict(),
             'acc1': acc1,
-        }, is_best, filename='dataparallel_model_l1.pth.tar')
+        }, is_best, filename='dataparallel_model_ft.pth.tar')
 
         save_checkpoint({
             'model': base_model,
-        }, is_best, filename='base_model_l1.pth.tar')
+        }, is_best, filename='base_model_ft.pth.tar')
 
         _save_checkpoint({
             'model': base_model,
             'state_dict': base_model.state_dict(),
-        }, is_best, filename='base_model_l1_' + str(pruning_iteration) + '.pth.tar')
+        }, is_best, filename='base_model_ft_' + str(pruning_iteration) + '.pth.tar')
 
         del model, base_model
 
@@ -129,6 +145,71 @@ def main_worker(gpu, args):
         print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
         print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
         accuracy = acc1
+
+
+def finetune(model, train_loader, val_loader, criterion, optimizer, scheduler):
+    global best_acc1
+    for epoch in range(args.epochs):
+        print(
+            'Finetuning epoch {} of {} with learning rate {}.'.format(epoch + 1, args.epochs, scheduler.get_last_lr()))
+
+        # train for one epoch
+        train(train_loader, model, criterion, optimizer, epoch, args)
+
+        # evaluate on validation set
+        acc1 = validate(val_loader, model, criterion, args)
+
+        scheduler.step()
+    return acc1
+
+
+def train(train_loader, model, criterion, optimizer, epoch, args):
+    batch_time = AverageMeter('Time', ':6.3f')
+    data_time = AverageMeter('Data', ':6.3f')
+    losses = AverageMeter('Loss', ':.4e')
+    top1 = AverageMeter('Acc@1', ':6.2f')
+    progress = ProgressMeter(
+        len(train_loader),
+        [batch_time, data_time, losses, top1],
+        prefix="Epoch: [{}]".format(epoch))
+
+    # switch to train mode
+    model.train()
+
+    end = time.time()
+    for i, (images, target) in enumerate(tqdm(train_loader)):
+        # measure data loading time
+        data_time.update(time.time() - end)
+
+        if args.gpu is not None:
+            images = images.cuda(args.gpu, non_blocking=True)
+        if torch.cuda.is_available():
+            target = target.cuda(args.gpu, non_blocking=True)
+
+        # compute output
+        output = model(images)
+        loss = criterion(output, target)
+
+        # measure accuracy and record loss
+        # acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        test_cal = test_soft_add().cuda(args.gpu)
+        acc1 = test_cal(output, target)
+        acc1 = 100 * acc1 ** 0.5
+        losses.update(loss.item(), images.size(0))
+        top1.update(acc1, images.size(0))
+        # top5.update(acc5[0], images.size(0))
+
+        # compute gradient and do SGD step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if i % args.print_freq == 0:
+            progress.display(i)
 
 
 def validate(val_loader, model, criterion, args):
@@ -259,6 +340,7 @@ class ProgressMeter(object):
         fmt = '{:' + str(num_digits) + 'd}'
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
 
+'''
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
@@ -274,6 +356,7 @@ def accuracy(output, target, topk=(1,)):
             correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
+'''
 
 def DataParallelStateDict_To_StateDict(state_dict):
     new_state_dict = OrderedDict()
@@ -293,9 +376,9 @@ def ToAppropriateDevice(model, args):
     return model
 
 def LoadBaseModel():
-    base_model_dict = torch.load('base_model_l1.pth.tar', map_location=torch.device('cpu'))
+    base_model_dict = torch.load('base_model_ft.pth.tar', map_location=torch.device('cpu'))
     base_model = base_model_dict['model']
-    model_dict = torch.load('dataparallel_model_l1.pth.tar', map_location=torch.device('cpu'))
+    model_dict = torch.load('dataparallel_model_ft.pth.tar', map_location=torch.device('cpu'))
     state_dict = model_dict['state_dict']
     unpruned_accuracy = model_dict['unpruned_accuracy']
     pruning_iteration = model_dict['pruning_iteration']

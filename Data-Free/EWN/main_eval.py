@@ -87,7 +87,7 @@ def main_worker(gpu, args):
     pruner = GenThinPruner(base_model, args)
     print('Computing Saliency Scores...')
     pruner.ComputeSaliencyScores(base_model)
-    while accuracy <= 12.5:
+    while accuracy <= 25:
         pruning_iteration += 1
         print('Pruning iteration {}...'.format(pruning_iteration))
         print('Pruning the model...')
@@ -109,16 +109,16 @@ def main_worker(gpu, args):
             'model': model,
             'state_dict': model.state_dict(),
             'acc1': acc1,
-        }, is_best, filename='dataparallel_model_res.pth.tar')
+        }, is_best, filename='dataparallel_model_test1209.pth.tar')
 
         save_checkpoint({
             'model': base_model,
-        }, is_best, filename='base_model_res.pth.tar')
+        }, is_best, filename='base_model_test1209.pth.tar')
 
         _save_checkpoint({
             'model': base_model,
             'state_dict': base_model.state_dict(),
-        }, is_best, filename='base_model_res_' + str(pruning_iteration) + '.pth.tar')
+        }, is_best, filename='base_model_test1209_' + str(pruning_iteration) + '.pth.tar')
 
         del model, base_model
 
@@ -293,9 +293,9 @@ def ToAppropriateDevice(model, args):
     return model
 
 def LoadBaseModel():
-    base_model_dict = torch.load('base_model_res.pth.tar', map_location=torch.device('cpu'))
+    base_model_dict = torch.load('base_model_test1209.pth.tar', map_location=torch.device('cpu'))
     base_model = base_model_dict['model']
-    model_dict = torch.load('dataparallel_model_res.pth.tar', map_location=torch.device('cpu'))
+    model_dict = torch.load('dataparallel_model_test1209.pth.tar', map_location=torch.device('cpu'))
     state_dict = model_dict['state_dict']
     unpruned_accuracy = model_dict['unpruned_accuracy']
     pruning_iteration = model_dict['pruning_iteration']
