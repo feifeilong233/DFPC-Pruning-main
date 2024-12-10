@@ -9,7 +9,7 @@ Reference:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from layers.attention2d import MultiQueryAttention2d
+from layers.attention2d import MultiQueryAttention2d, MultiQueryAttentionV2
 
 
 class BasicBlock(nn.Module):
@@ -84,11 +84,9 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.in_planes = 64
 
-        self.mqa = MultiQueryAttention2d(
+        self.mqa = MultiQueryAttentionV2(
             dim=10,  # 输入通道数
-            num_heads=2,  # 注意力头数，设为 1 或 2
-            kv_stride=2,  # Key 和 Value 的下采样因子
-            query_strides=1,  # Query 不下采样
+            num_heads=1,  # 注意力头数，设为 1 或 2
             attn_drop=0.1,  # 注意力 Dropout
             proj_drop=0.1,  # 投影 Dropout
         )
@@ -98,9 +96,9 @@ class ResNet(nn.Module):
         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=1)
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=1)
-        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=1)
+        # self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=1)
         self.avgpool = nn.AdaptiveAvgPool2d(output_size=(1,1))
-        self.fc = nn.Linear(512*block.expansion, num_classes)
+        self.fc = nn.Linear(256*block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -116,7 +114,7 @@ class ResNet(nn.Module):
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
-        out = self.layer4(out)
+        # out = self.layer4(out)
         out = self.avgpool(out)
         out = out.view(out.size(0), -1)
         out = self.fc(out)

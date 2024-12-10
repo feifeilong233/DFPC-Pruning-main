@@ -19,17 +19,18 @@ from tqdm import tqdm
 from data_combine1021Alpha_great_combineAll import data_combine
 from loss_function_0712Alpha import loss_soft_add
 from loss_function_0712Alpha import test_soft_add
-from pruner.genthin_mb import GenThinPruner
+from pruner.genthin_resnet10 import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
 # from try_resnet_0706 import ResNet, BasicBlock
-from models import *
+# from models import *
+from resnet_mqa import ResNet10
 
 parser = argparse.ArgumentParser(description='Model Pruning Implementation')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
-parser.add_argument('-p', '--print-freq', default=100, type=int,
+parser.add_argument('-p', '--print-freq', default=1000, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--accuracy-threshold', default=2.5, type=float,
+parser.add_argument('--accuracy-threshold', default=5, type=float,
                     help='validation accuracy drop feasible for the pruned model', dest='accuracy_threshold')
 parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
@@ -48,7 +49,7 @@ parser.add_argument('-b', '--batch-size', default=64, type=int,
                          'using Data Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
-parser.add_argument('--epochs', default=1, type=int, metavar='N',
+parser.add_argument('--epochs', default=5, type=int, metavar='N',
                     help='number of total epochs to run')
 
 args = parser.parse_args()
@@ -79,8 +80,8 @@ def main_worker(gpu, args):
     pruning_iteration = 0
     print("=> using pre-trained model")
     # dict = torch.load('best_base_model.pth.tar')
-    base_model = MobileNetV2()
-    base_model.load_state_dict(torch.load('1128_1111_Alpha1.pt'))
+    base_model = ResNet10()
+    base_model.load_state_dict(torch.load('1209_1111_downsample.pt'))
 
     net = model = copy.deepcopy(base_model)
     macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
@@ -90,7 +91,7 @@ def main_worker(gpu, args):
     cudnn.benchmark = True
 
     # define loss function (criterion)
-    criterionnew = nn.L1Loss().cuda(args.gpu)
+    # criterionnew = nn.L1Loss().cuda(args.gpu)
     criterion = loss_soft_add().cuda(args.gpu)
     optimizer = torch.optim.AdamW(base_model.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=2, eta_min=1e-4)
@@ -104,7 +105,7 @@ def main_worker(gpu, args):
     pruner = GenThinPruner(base_model, args)
     print('Computing Saliency Scores...')
     pruner.ComputeSaliencyScores(base_model)
-    while accuracy <= 12.5:
+    while accuracy <= 25:
         pruning_iteration += 1
         print('Pruning iteration {}...'.format(pruning_iteration))
         print('Pruning the model...')
@@ -127,16 +128,16 @@ def main_worker(gpu, args):
             'model': model,
             'state_dict': model.state_dict(),
             'acc1': acc1,
-        }, is_best, filename='dataparallel_model_ft.pth.tar')
+        }, is_best, filename='dataparallel_model_mqa.pth.tar')
 
         save_checkpoint({
             'model': base_model,
-        }, is_best, filename='base_model_ft.pth.tar')
+        }, is_best, filename='base_model_mqa.pth.tar')
 
         _save_checkpoint({
             'model': base_model,
             'state_dict': base_model.state_dict(),
-        }, is_best, filename='base_model_ft_' + str(pruning_iteration) + '.pth.tar')
+        }, is_best, filename='base_model_mqa_' + str(pruning_iteration) + '.pth.tar')
 
         del model, base_model
 
@@ -378,9 +379,9 @@ def ToAppropriateDevice(model, args):
     return model
 
 def LoadBaseModel():
-    base_model_dict = torch.load('base_model_ft.pth.tar', map_location=torch.device('cpu'))
+    base_model_dict = torch.load('base_model_mqa.pth.tar', map_location=torch.device('cpu'))
     base_model = base_model_dict['model']
-    model_dict = torch.load('dataparallel_model_ft.pth.tar', map_location=torch.device('cpu'))
+    model_dict = torch.load('dataparallel_model_mqa.pth.tar', map_location=torch.device('cpu'))
     state_dict = model_dict['state_dict']
     unpruned_accuracy = model_dict['unpruned_accuracy']
     pruning_iteration = model_dict['pruning_iteration']
