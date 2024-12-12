@@ -49,7 +49,7 @@ parser.add_argument('-b', '--batch-size', default=64, type=int,
                          'using Data Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
-parser.add_argument('--epochs', default=5, type=int, metavar='N',
+parser.add_argument('--epochs', default=1, type=int, metavar='N',
                     help='number of total epochs to run')
 
 args = parser.parse_args()
@@ -81,7 +81,7 @@ def main_worker(gpu, args):
     print("=> using pre-trained model")
     # dict = torch.load('best_base_model.pth.tar')
     base_model = ResNet10()
-    base_model.load_state_dict(torch.load('1209_1111_downsample.pt'))
+    base_model.load_state_dict(torch.load('1211_1111_downsample.pt'))
 
     net = model = copy.deepcopy(base_model)
     macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
@@ -128,16 +128,16 @@ def main_worker(gpu, args):
             'model': model,
             'state_dict': model.state_dict(),
             'acc1': acc1,
-        }, is_best, filename='dataparallel_model_mqa.pth.tar')
+        }, is_best, filename='dataparallel_model_ft1212.pth.tar')
 
         save_checkpoint({
             'model': base_model,
-        }, is_best, filename='base_model_mqa.pth.tar')
+        }, is_best, filename='base_model_ft1212.pth.tar')
 
         _save_checkpoint({
             'model': base_model,
             'state_dict': base_model.state_dict(),
-        }, is_best, filename='base_model_mqa_' + str(pruning_iteration) + '.pth.tar')
+        }, is_best, filename='base_model_ft1212_' + str(pruning_iteration) + '.pth.tar')
 
         del model, base_model
 
@@ -268,10 +268,10 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
         shutil.copyfile(filename, 'best_' + filename)
 
 def _save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    _filename = './checkpoints/' + filename
+    _filename = './1212_checkpoints/' + filename
     torch.save(state, _filename)
     if is_best:
-        shutil.copyfile(_filename, './checkpoints/best_' + filename)
+        shutil.copyfile(_filename, './1212_checkpoints/best_' + filename)
 
 
 class Summary(Enum):
@@ -379,9 +379,9 @@ def ToAppropriateDevice(model, args):
     return model
 
 def LoadBaseModel():
-    base_model_dict = torch.load('base_model_mqa.pth.tar', map_location=torch.device('cpu'))
+    base_model_dict = torch.load('base_model_ft1212.pth.tar', map_location=torch.device('cpu'))
     base_model = base_model_dict['model']
-    model_dict = torch.load('dataparallel_model_mqa.pth.tar', map_location=torch.device('cpu'))
+    model_dict = torch.load('dataparallel_model_ft1212.pth.tar', map_location=torch.device('cpu'))
     state_dict = model_dict['state_dict']
     unpruned_accuracy = model_dict['unpruned_accuracy']
     pruning_iteration = model_dict['pruning_iteration']

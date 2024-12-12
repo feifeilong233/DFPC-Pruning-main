@@ -23,7 +23,8 @@ from pruner.genthin_resnet10 import GenThinPruner
 from subDataset import subDataset
 # from try_resnet_1003 import ResNet, BasicBlock
 # from try_resnet_0706 import ResNet, BasicBlock
-from models import *
+# from models import *
+from resnet_mqa import ResNet10
 
 parser = argparse.ArgumentParser(description='Model Pruning Implementation')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
@@ -65,7 +66,7 @@ def main_worker(gpu, args):
     print("=> using pre-trained model")
     # dict = torch.load('best_base_model.pth.tar')
     base_model = ResNet10()
-    base_model.load_state_dict(torch.load('1201_1111_downsample.pt'))
+    base_model.load_state_dict(torch.load('1211_1111_downsample.pt'))
 
     net = model = copy.deepcopy(base_model)
     macs, params = get_model_complexity_info(net, (10, 5, 5), as_strings=True, print_per_layer_stat=False)
@@ -75,7 +76,7 @@ def main_worker(gpu, args):
     cudnn.benchmark = True
 
     # define loss function (criterion)
-    criterionnew = nn.L1Loss().cuda(args.gpu)
+    # criterionnew = nn.L1Loss().cuda(args.gpu)
     criterion = loss_soft_add().cuda(args.gpu)
 
     accuracy = validate(val_loader, model, criterion, args)
@@ -109,16 +110,16 @@ def main_worker(gpu, args):
             'model': model,
             'state_dict': model.state_dict(),
             'acc1': acc1,
-        }, is_best, filename='dataparallel_model_res.pth.tar')
+        }, is_best, filename='dataparallel_model_1212.pth.tar')
 
         save_checkpoint({
             'model': base_model,
-        }, is_best, filename='base_model_res.pth.tar')
+        }, is_best, filename='base_model_1212.pth.tar')
 
         _save_checkpoint({
             'model': base_model,
             'state_dict': base_model.state_dict(),
-        }, is_best, filename='base_model_res_' + str(pruning_iteration) + '.pth.tar')
+        }, is_best, filename='base_model_1212_' + str(pruning_iteration) + '.pth.tar')
 
         del model, base_model
 
@@ -184,10 +185,10 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
         shutil.copyfile(filename, 'best_' + filename)
 
 def _save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    _filename = './checkpoints/' + filename
+    _filename = './1212_checkpoints/' + filename
     torch.save(state, _filename)
     if is_best:
-        shutil.copyfile(_filename, './checkpoints/best_' + filename)
+        shutil.copyfile(_filename, './1212_checkpoints/best_' + filename)
 
 
 class Summary(Enum):
@@ -293,9 +294,9 @@ def ToAppropriateDevice(model, args):
     return model
 
 def LoadBaseModel():
-    base_model_dict = torch.load('base_model_res.pth.tar', map_location=torch.device('cpu'))
+    base_model_dict = torch.load('base_model_1212.pth.tar', map_location=torch.device('cpu'))
     base_model = base_model_dict['model']
-    model_dict = torch.load('dataparallel_model_res.pth.tar', map_location=torch.device('cpu'))
+    model_dict = torch.load('dataparallel_model_1212.pth.tar', map_location=torch.device('cpu'))
     state_dict = model_dict['state_dict']
     unpruned_accuracy = model_dict['unpruned_accuracy']
     pruning_iteration = model_dict['pruning_iteration']
