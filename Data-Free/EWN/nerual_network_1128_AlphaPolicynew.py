@@ -1,6 +1,6 @@
 import os
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 #0623更新，将数据输入通道加到了6个
 #0706更新，将数据通道数增加到10，并尝试加入数据增强——数据对称
 from sklearn.model_selection import train_test_split

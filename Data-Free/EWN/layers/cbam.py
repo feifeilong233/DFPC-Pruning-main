@@ -70,7 +70,7 @@ class LightSpatialAttn(nn.Module):
     """
     def __init__(self, kernel_size=7, gate_layer='sigmoid'):
         super(LightSpatialAttn, self).__init__()
-        self.conv = ConvNormAct(1, 1, kernel_size, apply_act=False)
+        self.conv = ConvNormAct(1, 1, kernel_size, padding=1, apply_act=False)
         self.gate = create_act_layer(gate_layer)
 
     def forward(self, x):

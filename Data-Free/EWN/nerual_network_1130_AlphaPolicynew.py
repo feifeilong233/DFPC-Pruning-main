@@ -111,7 +111,7 @@ test_recall_cal = test_recall().cuda(device)
 learning_rate = 0.01
 #optimizer = torch.optim.SGD(resnet50.parameters(), lr=learning_rate, )
 # optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
-optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+optimizer=torch.optim.Adam(net.parameters(), lr=learning_rate, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
 # 优化器
 #optimizer = optim.SGD(net.parameters(), lr=0.00001, weight_decay=0.1)
 # optimizer = optim.Adagrad(net.parameters(), lr=0.001, weight_decay=0.1)  # 定义优化器
@@ -136,7 +136,7 @@ optimizer=torch.optim.AdamW(net.parameters(), lr=learning_rate, betas=(0.9, 0.99
 scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=2, eta_min=1e-4)
 # 开始训练循环
 for epoch in range(num_epochs):
-    # file1 = open('1210_1111_downsample_train.txt', 'a+')
+    # file1 = open('1211_1111_downsample_train.txt', 'a+')
 
     # 当前epoch的结果保存下来
     print("we are in ", epoch)
@@ -188,11 +188,11 @@ for epoch in range(num_epochs):
     print('the accuracy is ', accuracy_2)
     # file1.close()
     if epoch % 20 == 0:
-        save_model('./1203_pre/1210_1111_downsample' + str(epoch) + '.pth', epoch, optimizer, net)
-        torch.save(net.state_dict(), '1210_1111_downsample.pt')
+        save_model('./1203_pre/1211_1111_downsample' + str(epoch) + '.pth', epoch, optimizer, net)
+        torch.save(net.state_dict(), '1211_1111_downsample.pt')
     if use_test is True:
         if epoch % 5 == 0:
-            # file2 = open('1210_1111_downsample_test.txt', 'a+')
+            # file2 = open('1211_1111_downsample_test.txt', 'a+')
             net.eval()
             test_accuracy = 0
             test_recall_v = 0
@@ -232,8 +232,8 @@ for epoch in range(num_epochs):
             #         canvas1.draw_plot(history1["test_accuracy"])
 # writer.close()
 # save_model('0716model_dict_Alpha.pth',epoch, optimizer, net)
-save_model('1210_1111_downsample.pth', epoch, optimizer, net)
-torch.save(net.state_dict(), '1210_1111_downsample.pt')
+save_model('1211_1111_downsample.pth', epoch, optimizer, net)
+torch.save(net.state_dict(), '1211_1111_downsample.pt')
 # tensorboard --logdir C:\Users\Elessar\Desktop\Game_theory\chess\logs
 # nvidia-smi
 
