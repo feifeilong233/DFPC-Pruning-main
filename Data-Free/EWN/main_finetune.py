@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser(description='Model Pruning Implementation')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('-p', '--print-freq', default=1000, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--accuracy-threshold', default=5, type=float,
+parser.add_argument('--accuracy-threshold', default=2.5, type=float,
                     help='validation accuracy drop feasible for the pruned model', dest='accuracy_threshold')
 parser.add_argument('--pruning-percentage', default=0.01, type=float,
                     help='percentage of channels to prune per pruning iteration', dest='pruning_percentage')
@@ -49,7 +49,7 @@ parser.add_argument('-b', '--batch-size', default=64, type=int,
                          'using Data Parallel or Distributed Data Parallel')
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
-parser.add_argument('--epochs', default=1, type=int, metavar='N',
+parser.add_argument('--epochs', default=2, type=int, metavar='N',
                     help='number of total epochs to run')
 
 args = parser.parse_args()
@@ -93,8 +93,8 @@ def main_worker(gpu, args):
     # define loss function (criterion)
     # criterionnew = nn.L1Loss().cuda(args.gpu)
     criterion = loss_soft_add().cuda(args.gpu)
-    optimizer = torch.optim.AdamW(base_model.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=2, eta_min=1e-4)
+    optimizer = torch.optim.Adam(base_model.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0, amsgrad=False)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=20, T_mult=2, eta_min=1e-4)
 
     accuracy = validate(val_loader, model, criterion, args)
     print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
@@ -105,7 +105,7 @@ def main_worker(gpu, args):
     pruner = GenThinPruner(base_model, args)
     print('Computing Saliency Scores...')
     pruner.ComputeSaliencyScores(base_model)
-    while accuracy <= 25:
+    while accuracy <= 12.5:
         pruning_iteration += 1
         print('Pruning iteration {}...'.format(pruning_iteration))
         print('Pruning the model...')
@@ -128,16 +128,16 @@ def main_worker(gpu, args):
             'model': model,
             'state_dict': model.state_dict(),
             'acc1': acc1,
-        }, is_best, filename='dataparallel_model_ft1212.pth.tar')
+        }, is_best, filename='dataparallel_model_ft1213.pth.tar')
 
         save_checkpoint({
             'model': base_model,
-        }, is_best, filename='base_model_ft1212.pth.tar')
+        }, is_best, filename='base_model_ft1213.pth.tar')
 
         _save_checkpoint({
             'model': base_model,
             'state_dict': base_model.state_dict(),
-        }, is_best, filename='base_model_ft1212_' + str(pruning_iteration) + '.pth.tar')
+        }, is_best, filename='base_model_ft1213_' + str(pruning_iteration) + '.pth.tar')
 
         del model, base_model
 
@@ -271,7 +271,7 @@ def _save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     _filename = './1212_checkpoints/' + filename
     torch.save(state, _filename)
     if is_best:
-        shutil.copyfile(_filename, './1212_checkpoints/best_' + filename)
+        shutil.copyfile(_filename, './checkpoints/best_' + filename)
 
 
 class Summary(Enum):
@@ -379,9 +379,9 @@ def ToAppropriateDevice(model, args):
     return model
 
 def LoadBaseModel():
-    base_model_dict = torch.load('base_model_ft1212.pth.tar', map_location=torch.device('cpu'))
+    base_model_dict = torch.load('base_model_ft1213.pth.tar', map_location=torch.device('cpu'))
     base_model = base_model_dict['model']
-    model_dict = torch.load('dataparallel_model_ft1212.pth.tar', map_location=torch.device('cpu'))
+    model_dict = torch.load('dataparallel_model_ft1213.pth.tar', map_location=torch.device('cpu'))
     state_dict = model_dict['state_dict']
     unpruned_accuracy = model_dict['unpruned_accuracy']
     pruning_iteration = model_dict['pruning_iteration']
