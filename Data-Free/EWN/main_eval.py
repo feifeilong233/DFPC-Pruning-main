@@ -21,6 +21,7 @@ from loss_function_0712Alpha import loss_soft_add
 from loss_function_0712Alpha import test_soft_add
 # from pruner.genthin_resnet10 import GenThinPruner
 from subDataset import subDataset
+from attack import pgd_attack
 # from try_resnet_1003 import ResNet, BasicBlock
 # from try_resnet_0706 import ResNet, BasicBlock
 # from models import *
@@ -81,7 +82,7 @@ def main_worker(gpu, args):
     # Load checkpoint and define model
     pruning_iteration = 0
     print("=> using pre-trained model")
-    dict = torch.load('./1212_checkpoints/base_model_ft1212_27.pth.tar')
+    dict = torch.load('./1203_trained/best_base_model_ft1213_26.pth.tar')
     base_model = dict['model']
     base_model.load_state_dict(dict['state_dict'])
 
@@ -103,6 +104,13 @@ def main_worker(gpu, args):
     print('-{:<30}  {:<8}'.format('Computational complexity: ', macs))
     print('+{:<30}  {:<8}'.format('Number of parameters: ', params))
     unpruned_accuracy = accuracy
+
+    # evaluation on natural examples
+    print('================================================================')
+    # train_loss, train_loss_pgd, train_acc, train_acc_pgd = eval_train(model, device, train_loader)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    test_loss, test_loss_pgd, test_acc, test_acc_pgd = eval_test(model, device, val_loader)
+    print('================================================================')
 
     '''
     # print('Initializing Pruner...')
@@ -396,6 +404,32 @@ def LoadBaseModel():
     del base_model_dict, model_dict, state_dict
     base_model = base_model.to('cpu')
     return base_model, unpruned_accuracy, pruning_iteration
+
+def eval_test(model, device, test_loader):
+    model.eval()
+    test_loss = 0
+    test_loss_pgd = 0
+    correct = 0
+    correct_pgd = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            loss, loss_pgd = pgd_attack(model, data, target)
+            # correct += acc
+            # correct_pgd += acc_pgd
+            test_loss += loss
+            test_loss_pgd += loss_pgd
+    test_loss /= len(test_loader.dataset)
+    test_loss_pgd /= len(test_loader.dataset)
+    test_accuracy = correct / len(test_loader.dataset)
+    test_accuracy_pgd = correct_pgd / len(test_loader.dataset)
+    print('Test: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
+        test_loss, correct, len(test_loader.dataset),
+        100. * correct / len(test_loader.dataset)))
+    print('Test: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
+        test_loss_pgd, correct_pgd, len(test_loader.dataset),
+        100. * correct_pgd / len(test_loader.dataset)))
+    return test_loss, test_loss_pgd, test_accuracy, test_accuracy_pgd
 
 if __name__ == '__main__':
     main()
