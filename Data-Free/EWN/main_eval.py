@@ -43,7 +43,7 @@ parser.add_argument('--scoring-strategy', default='dfpc', type=str, help='strate
                     dest='strategy', choices=['dfpc', 'l1', 'random'])
 parser.add_argument('--prune-coupled', default=1, type=int, help='prune coupled channels is set to 1',
                     dest='prunecoupled', choices=[0, 1])
-parser.add_argument('-b', '--batch-size', default=64, type=int,
+parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N',
                     help='mini-batch size (default: 64), this is the total '
                          'batch size of all GPUs on the current node when '
@@ -67,7 +67,7 @@ def main_worker(gpu, args):
     args.gpu = gpu
 
     Data, Label, record, result = data_combine(False, False, 5, True, True, True)
-    X_train, X_test, y_train, y_test = train_test_split(Data, Label, test_size=0.01, random_state=40)
+    X_train, X_test, y_train, y_test = train_test_split(Data, Label, test_size=0.05, random_state=40)
     train_xt = torch.from_numpy(X_train.astype(np.float32))
     train_yt = torch.from_numpy(y_train.astype(np.float32))
     test_xt = torch.from_numpy(X_test.astype(np.float32))
@@ -414,21 +414,21 @@ def eval_test(model, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            loss, loss_pgd = pgd_attack(model, data, target)
-            # correct += acc
-            # correct_pgd += acc_pgd
+            loss, loss_pgd, acc, acc_pgd = pgd_attack(model, data, target, device=device)
+            correct += acc
+            correct_pgd += acc_pgd
             test_loss += loss
             test_loss_pgd += loss_pgd
-    test_loss /= len(test_loader.dataset)
-    test_loss_pgd /= len(test_loader.dataset)
-    test_accuracy = correct / len(test_loader.dataset)
-    test_accuracy_pgd = correct_pgd / len(test_loader.dataset)
+    test_loss /= args.batch_size
+    test_loss_pgd /= args.batch_size
+    test_accuracy = correct / 100
+    test_accuracy_pgd = correct_pgd / 100
     print('Test: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
         test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+        100. * correct / 100))
     print('Test: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
         test_loss_pgd, correct_pgd, len(test_loader.dataset),
-        100. * correct_pgd / len(test_loader.dataset)))
+        100. * correct_pgd / 100))
     return test_loss, test_loss_pgd, test_accuracy, test_accuracy_pgd
 
 if __name__ == '__main__':
