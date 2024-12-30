@@ -109,6 +109,7 @@ def main_worker(gpu, args):
     print('================================================================')
     # train_loss, train_loss_pgd, train_acc, train_acc_pgd = eval_train(model, device, train_loader)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    calculate_sparsity(model)
     test_loss, test_loss_pgd, test_acc, test_acc_pgd = eval_test(model, device, val_loader)
     print('================================================================')
 
@@ -430,6 +431,39 @@ def eval_test(model, device, test_loader):
         test_loss_pgd, correct_pgd, len(test_loader.dataset),
         100. * correct_pgd / 100))
     return test_loss, test_loss_pgd, test_accuracy, test_accuracy_pgd
+
+
+def calculate_sparsity(model):
+    total_params = 0
+    zero_params = 0
+    layer_sparsity = {}
+
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            # 计算当前层的总参数量和零参数量
+            layer_total = param.numel()
+            layer_zero = (param == 0).sum().item()
+
+            # 更新总参数量和零参数量
+            total_params += layer_total
+            zero_params += layer_zero
+
+            # 计算当前层稀疏度并记录
+            layer_sparsity[name] = layer_zero / layer_total
+
+    # 计算整体模型稀疏度
+    sparsity = zero_params / total_params
+
+    # 打印统计结果
+    print(f"Model Sparsity Analysis:")
+    print(f"Total parameters: {total_params}")
+    print(f"Zero parameters: {zero_params}")
+    print(f"Overall Sparsity: {sparsity:.2%}\n")
+
+    print("Layer-wise Sparsity:")
+    for layer_name, layer_spar in layer_sparsity.items():
+        print(f"  {layer_name}: {layer_spar:.2%}")
+
 
 if __name__ == '__main__':
     main()

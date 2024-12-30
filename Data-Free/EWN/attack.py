@@ -11,9 +11,9 @@ def pgd_attack(model,
                X,
                y,
                device,
-               epsilon=0.1,
+               epsilon=0.2,
                num_steps=10,
-               step_size=0.02,
+               step_size=0.05,
                random = True,
                ):
     X, y = Variable(X, requires_grad=True), Variable(y)
