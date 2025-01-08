@@ -420,16 +420,15 @@ def eval_test(model, device, test_loader):
             correct_pgd += acc_pgd
             test_loss += loss
             test_loss_pgd += loss_pgd
-    test_loss /= args.batch_size
-    test_loss_pgd /= args.batch_size
-    test_accuracy = correct / 100
-    test_accuracy_pgd = correct_pgd / 100
-    print('Test: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100. * correct / 100))
-    print('Test: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
-        test_loss_pgd, correct_pgd, len(test_loader.dataset),
-        100. * correct_pgd / 100))
+    test_loader_len = len(test_loader)
+    test_loss /= test_loader_len
+    test_loss_pgd /= test_loader_len
+    test_accuracy = 100. * correct / test_loader_len
+    test_accuracy_pgd = 100. * correct_pgd / test_loader_len
+    print('Test: Average loss: {:.4f}, Accuracy: {:.4f}%'.format(
+        test_loss, test_accuracy))
+    print('Test: Average loss: {:.4f}, Accuracy: {:.4f}%'.format(
+        test_loss_pgd, test_accuracy_pgd))
     return test_loss, test_loss_pgd, test_accuracy, test_accuracy_pgd
 
 

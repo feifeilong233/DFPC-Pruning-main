@@ -12,10 +12,11 @@ def pgd_attack(model,
                y,
                device,
                epsilon=0.2,
-               num_steps=10,
+               num_steps=20,
                step_size=0.05,
                random = True,
                ):
+    X_pgd = Variable(X, requires_grad=True)
     X, y = Variable(X, requires_grad=True), Variable(y)
     criterion = loss_soft_add().cuda(device)
     criterion_test = test_soft_add().cuda(device)
