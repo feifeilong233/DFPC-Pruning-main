@@ -6,6 +6,40 @@ global expand
 expand = 1
 
 
+class test_soft_batch(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def trans(self, outtensor):
+        device = torch.device("cuda")
+        outtensor.cuda(device)
+        return outtensor
+
+    def forward(self, pre, tar):
+        device = torch.device("cuda")
+        batch_losses = []  # 用于存储每个样本的损失
+
+        for j in range(0, tar.size(0)):
+            prenew = pre[j]
+            tarnew = tar[j]
+
+            out = torch.zeros(25).to(device)  # 确保 out 在 CUDA 上
+
+            for i in range(0, 6):
+                oneStatus = prenew[i * 4:(i + 1) * 4]
+                out[i * 4:(i + 1) * 4] = 3 * expand * torch.softmax(oneStatus, 0)
+
+            out[24] = torch.relu(prenew[24])  # 最后一项的特殊处理
+
+            # 计算当前样本的损失
+            sample_loss = torch.mean(((out[0:24] - tarnew[0:24]).pow(2))) ** 0.5
+            batch_losses.append(sample_loss)  # 将当前样本的损失加入列表
+
+        # 将损失列表转换为张量返回
+        return torch.stack(batch_losses)
+
+
+
 class test_soft_add(nn.Module):
 
     def __init__(self):
